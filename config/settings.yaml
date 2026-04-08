@@ -1,0 +1,47 @@
+jarvis:
+  name: JARVIS
+  version: "0.1.0"
+
+llm:
+  default_provider: openai          # openai | anthropic | ollama
+  default_model: gpt-4o
+  max_tool_iterations: 10
+  temperature: 0.7
+
+voice:
+  whisper_model: base               # tiny | base | small | medium | large-v3
+  whisper_device: cpu               # cpu | cuda
+  whisper_compute_type: int8        # int8 | float16 | float32
+  wake_word_model: ""               # blank = built-in; path to .onnx for custom
+  wake_word_threshold: 0.5
+  tts_voice: en-US-GuyNeural
+  silence_threshold: 0.01           # RMS below this = silence
+  silence_duration_s: 1.5           # seconds of silence before stopping record
+  max_record_duration_s: 30
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins:
+    - "http://localhost:5173"
+    - "http://localhost:3000"
+
+memory:
+  enabled: true
+  persist_directory: ".jarvis/chroma"
+  collection_name: jarvis_memory
+  max_context_results: 5
+
+integrations:
+  gmail:
+    enabled: false
+    scopes:
+      - https://www.googleapis.com/auth/gmail.modify
+  discord:
+    enabled: false
+    default_channel_id: ""
+  youtube:
+    enabled: false
+    max_results: 5
+  instagram:
+    enabled: false
