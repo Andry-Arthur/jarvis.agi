@@ -1,4 +1,4 @@
-"""JARVIS Agent — the main LLM tool-calling loop."""
+"""JARVIS Agent — the main LLM tool-calling loop with streaming and retry."""
 
 from __future__ import annotations
 
@@ -10,12 +10,25 @@ from jarvis.llm.router import LLMRouter
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are JARVIS, a highly capable AI personal assistant. You have access to the following tools:
+SYSTEM_PROMPT = """You are JARVIS, a highly capable AI personal assistant. You have access to many tools:
 
-- **Gmail**: Read emails, search your inbox, send emails, archive messages
+- **Gmail**: Read, search, send, and archive emails
 - **Discord**: Send messages to channels, read channel history
-- **YouTube**: Search for videos, get video transcripts and summaries
+- **YouTube**: Search for videos, get transcripts and summaries
 - **Instagram**: Read and send Instagram DMs
+- **Google Calendar**: List events, create events, find free slots
+- **Google Drive**: Search, read, and create documents
+- **WhatsApp**: Send and read WhatsApp messages
+- **Telegram**: Send messages and files via Telegram
+- **Spotify**: Play, pause, search tracks, manage playlists
+- **Slack**: Send messages, read channels
+- **Browser**: Navigate websites, fill forms, extract text
+- **File System**: Read, write, and search files
+- **Code Execution**: Run Python scripts and shell commands
+- **Screen Vision**: Capture and read screen content
+- **Computer Control**: Click, type, and automate desktop tasks
+- **Knowledge Base**: Search your personal document library
+- **Reminders**: Set and manage reminders and scheduled tasks
 
 Guidelines:
 - Be concise and conversational — you're speaking to the user directly.
@@ -25,6 +38,8 @@ Guidelines:
 - Remember the user's preferences and context from the conversation.
 - Always respond in a helpful, proactive tone.
 """
+
+_TOOL_MAX_RETRIES = 1  # retry each failed tool call once before reporting
 
 
 class AgentEvent:
@@ -36,6 +51,21 @@ class AgentEvent:
 
     def to_dict(self) -> dict:
         return {"type": self.kind, **self.data}
+
+
+async def _execute_with_retry(registry: ToolRegistry, name: str, args: dict) -> str:
+    """Execute a tool, retrying once on failure."""
+    last_error: Exception | None = None
+    for attempt in range(_TOOL_MAX_RETRIES + 1):
+        try:
+            return await registry.execute(name, args)
+        except Exception as exc:
+            last_error = exc
+            if attempt < _TOOL_MAX_RETRIES:
+                logger.warning(
+                    "Tool '%s' failed (attempt %d), retrying: %s", name, attempt + 1, exc
+                )
+    return f"[Tool '{name}' failed after {_TOOL_MAX_RETRIES + 1} attempts: {last_error}]"
 
 
 class Agent:
@@ -72,7 +102,7 @@ class Agent:
 
         available_tools = self.tools.get_all_schemas()
 
-        for iteration in range(self.max_iterations):
+        for _iteration in range(self.max_iterations):
             response = await self.llm.chat(
                 messages,
                 tools=available_tools if available_tools else None,
@@ -85,7 +115,6 @@ class Agent:
                     await self.memory.add_exchange(user_message, response.content)
                 return response.content
 
-            # Append assistant turn with tool calls
             messages.append(
                 {
                     "role": "assistant",
@@ -94,10 +123,9 @@ class Agent:
                 }
             )
 
-            # Execute each tool and append results
             for tc in response.tool_calls:
                 logger.info("Calling tool '%s' with args: %s", tc.name, tc.arguments)
-                result = await self.tools.execute(tc.name, tc.arguments)
+                result = await _execute_with_retry(self.tools, tc.name, tc.arguments)
                 messages.append(
                     {
                         "role": "tool",
@@ -109,7 +137,7 @@ class Agent:
         return "I've reached the maximum number of steps. Please try rephrasing your request."
 
     # ------------------------------------------------------------------
-    # Streaming run (yields AgentEvent objects)
+    # Streaming run — yields AgentEvent objects with real token streaming
     # ------------------------------------------------------------------
 
     async def stream(
@@ -129,32 +157,44 @@ class Agent:
 
         available_tools = self.tools.get_all_schemas()
 
-        for iteration in range(self.max_iterations):
-            response = await self.llm.chat(
+        for _iteration in range(self.max_iterations):
+            accumulated_text = ""
+            accumulated_tool_calls = []
+
+            # True streaming: emit tokens as they arrive
+            async for chunk in self.llm.stream_chat(
                 messages,
                 tools=available_tools if available_tools else None,
                 system=system,
                 provider=provider,
-            )
+            ):
+                if chunk.delta:
+                    accumulated_text += chunk.delta
+                    yield AgentEvent("chunk", {"delta": chunk.delta, "model": chunk.model})
+                if chunk.tool_calls:
+                    accumulated_tool_calls = chunk.tool_calls
 
-            if not response.tool_calls:
+            if not accumulated_tool_calls:
                 if self.memory:
-                    await self.memory.add_exchange(user_message, response.content)
-                yield AgentEvent("done", {"content": response.content, "model": response.model})
+                    await self.memory.add_exchange(user_message, accumulated_text)
+                yield AgentEvent(
+                    "done",
+                    {"content": accumulated_text, "model": ""},
+                )
                 return
 
-            # Emit tool call events
+            # Append assistant message with tool calls
             messages.append(
                 {
                     "role": "assistant",
-                    "content": response.content or "",
-                    "tool_calls": [tc.to_openai_dict() for tc in response.tool_calls],
+                    "content": accumulated_text,
+                    "tool_calls": [tc.to_openai_dict() for tc in accumulated_tool_calls],
                 }
             )
 
-            for tc in response.tool_calls:
+            for tc in accumulated_tool_calls:
                 yield AgentEvent("tool_call", {"name": tc.name, "args": tc.arguments})
-                result = await self.tools.execute(tc.name, tc.arguments)
+                result = await _execute_with_retry(self.tools, tc.name, tc.arguments)
                 yield AgentEvent("tool_result", {"name": tc.name, "result": result})
                 messages.append(
                     {

@@ -45,14 +45,14 @@ async def text_to_speech(req: TTSRequest):
 
 @router.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe(file: UploadFile = File(...)):
-    """Transcribe an uploaded WAV/MP3 audio file to text using Whisper."""
+    """Transcribe an uploaded audio file (WebM, WAV, MP3, etc.) to text using Whisper."""
     import asyncio
-    import numpy as np
-    import soundfile as sf
     from jarvis.voice.stt import SpeechToText
 
+    # Preserve the original file extension so faster-whisper/ffmpeg can detect the format
+    suffix = os.path.splitext(file.filename or "recording.webm")[1] or ".webm"
     content = await file.read()
-    with tempfile.NamedTemporaryFile(suffix=os.path.splitext(file.filename or ".wav")[1], delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(content)
         tmp_path = tmp.name
 
@@ -63,18 +63,9 @@ async def transcribe(file: UploadFile = File(...)):
             device="cpu",
             compute_type="int8",
         )
-
-        def _transcribe():
-            audio, sr = sf.read(tmp_path, dtype="float32")
-            if audio.ndim > 1:
-                audio = audio.mean(axis=1)
-            # Resample to 16kHz if needed
-            if sr != 16000:
-                import scipy.signal as signal
-                audio = signal.resample(audio, int(len(audio) * 16000 / sr))
-            return stt.transcribe(audio)
-
-        text = await loop.run_in_executor(None, _transcribe)
+        # Pass the file path directly to faster-whisper — it decodes via ffmpeg
+        # and handles any format the browser sends (WebM/Opus, MP4, WAV, etc.)
+        text = await loop.run_in_executor(None, stt.transcribe_file, tmp_path)
     finally:
         try:
             os.unlink(tmp_path)

@@ -29,16 +29,58 @@ def _build_agent(scheduler=None):
     # Tool registry — only register tools from configured integrations
     registry = ToolRegistry()
 
+    from jarvis.integrations.browser import BrowserIntegration
+    from jarvis.integrations.code_exec import CodeExecIntegration
+    from jarvis.integrations.computer_control import ComputerControlIntegration
     from jarvis.integrations.discord_int import DiscordIntegration
+    from jarvis.integrations.filesystem import FilesystemIntegration
     from jarvis.integrations.gmail import GmailIntegration
+    from jarvis.integrations.google_calendar import GoogleCalendarIntegration
+    from jarvis.integrations.google_drive import GoogleDriveIntegration
     from jarvis.integrations.instagram import InstagramIntegration
+    from jarvis.integrations.knowledge_base import KnowledgeBaseIntegration
+    from jarvis.integrations.screen import ScreenIntegration
+    from jarvis.integrations.slack import SlackIntegration
+    from jarvis.integrations.spotify import SpotifyIntegration
+    from jarvis.integrations.telegram import TelegramIntegration
+    from jarvis.integrations.whatsapp import WhatsAppIntegration
     from jarvis.integrations.youtube import YouTubeIntegration
+
+    # Phase 5 integrations
+    from jarvis.integrations.finance import FinanceIntegration
+    from jarvis.integrations.github_int import GitHubIntegration
+    from jarvis.integrations.home_assistant import HomeAssistantIntegration
+    from jarvis.integrations.news import NewsIntegration
+    from jarvis.integrations.notion import NotionIntegration
+    from jarvis.integrations.weather import WeatherIntegration
 
     integrations = [
         GmailIntegration(),
         DiscordIntegration(),
         YouTubeIntegration(),
         InstagramIntegration(),
+        # Phase 2
+        GoogleCalendarIntegration(),
+        GoogleDriveIntegration(),
+        WhatsAppIntegration(),
+        TelegramIntegration(),
+        SpotifyIntegration(),
+        SlackIntegration(),
+        # Phase 3
+        BrowserIntegration(),
+        FilesystemIntegration(),
+        CodeExecIntegration(),
+        ScreenIntegration(),
+        ComputerControlIntegration(),
+        # Phase 4
+        KnowledgeBaseIntegration(),
+        # Phase 5
+        WeatherIntegration(),
+        NewsIntegration(),
+        NotionIntegration(),
+        GitHubIntegration(),
+        HomeAssistantIntegration(),
+        FinanceIntegration(),
     ]
     for integration in integrations:
         if integration.is_configured():
@@ -74,14 +116,30 @@ def _build_agent(scheduler=None):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from dotenv import load_dotenv
+    from jarvis.agi.world_model import WorldModel
     from jarvis.core.scheduler import TaskScheduler
+    from jarvis.plugins.loader import PluginLoader
 
     load_dotenv()
 
     scheduler = TaskScheduler()
     scheduler.start()
     app_state["scheduler"] = scheduler
-    app_state["agent"] = _build_agent(scheduler=scheduler)
+
+    agent = _build_agent(scheduler=scheduler)
+    app_state["agent"] = agent
+
+    # Load user plugins
+    plugin_loader = PluginLoader()
+    n_tools = plugin_loader.load_all(agent.tools)
+    if n_tools:
+        logger.info("Loaded %d tool(s) from plugins.", n_tools)
+    app_state["plugin_loader"] = plugin_loader
+
+    # World model
+    world_model = WorldModel()
+    app_state["world_model"] = world_model
+
     logger.info("JARVIS.AGI API ready.")
     yield
     scheduler.stop()
@@ -112,8 +170,11 @@ def create_app() -> FastAPI:
     )
 
     # REST routes
+    from jarvis.api.routes.agi import router as agi_router
     from jarvis.api.routes.chat import router as chat_router
+    from jarvis.api.routes.config import router as config_router
     from jarvis.api.routes.integrations import router as integrations_router
+    from jarvis.api.routes.proactive import router as proactive_router
     from jarvis.api.routes.reminders import router as reminders_router
     from jarvis.api.routes.voice import router as voice_router
 
@@ -121,6 +182,9 @@ def create_app() -> FastAPI:
     app.include_router(voice_router, prefix="/api")
     app.include_router(integrations_router, prefix="/api")
     app.include_router(reminders_router, prefix="/api")
+    app.include_router(config_router, prefix="/api")
+    app.include_router(proactive_router, prefix="/api")
+    app.include_router(agi_router, prefix="/api")
 
     # WebSocket
     from jarvis.api.ws import handle_websocket

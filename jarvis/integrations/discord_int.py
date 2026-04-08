@@ -48,7 +48,7 @@ class DiscordSendTool(Tool):
         "required": ["channel_id", "message"],
     }
 
-    async def run(self, channel_id: str, message: str) -> str:
+    async def execute(self, channel_id: str, message: str) -> str:
         async with httpx.AsyncClient() as client:
             r = await client.post(
                 f"{DISCORD_API}/channels/{channel_id}/messages",
@@ -76,7 +76,7 @@ class DiscordReadTool(Tool):
         "required": ["channel_id"],
     }
 
-    async def run(self, channel_id: str, limit: int = 10) -> str:
+    async def execute(self, channel_id: str, limit: int = 10) -> str:
         async with httpx.AsyncClient() as client:
             r = await client.get(
                 f"{DISCORD_API}/channels/{channel_id}/messages",
@@ -110,7 +110,7 @@ class DiscordDMTool(Tool):
         "required": ["user_id", "message"],
     }
 
-    async def run(self, user_id: str, message: str) -> str:
+    async def execute(self, user_id: str, message: str) -> str:
         async with httpx.AsyncClient() as client:
             # Open a DM channel first
             r = await client.post(

@@ -173,7 +173,7 @@ class ReminderTool(Tool):
         self._scheduler = scheduler
         self._notify = notify_callback or (lambda msg: logger.info("REMINDER: %s", msg))
 
-    async def run(
+    async def execute(
         self,
         message: str,
         in_minutes: int | None = None,
@@ -203,7 +203,7 @@ class ListRemindersTool(Tool):
     def __init__(self, scheduler: TaskScheduler) -> None:
         self._scheduler = scheduler
 
-    async def run(self) -> str:
+    async def execute(self) -> str:
         jobs = self._scheduler.list_jobs()
         if not jobs:
             return "No reminders scheduled."
@@ -225,7 +225,7 @@ class CancelReminderTool(Tool):
     def __init__(self, scheduler: TaskScheduler) -> None:
         self._scheduler = scheduler
 
-    async def run(self, job_id: str) -> str:
+    async def execute(self, job_id: str) -> str:
         if self._scheduler.cancel(job_id):
             return f"Reminder {job_id} cancelled."
         return f"No reminder found with ID: {job_id}"

@@ -65,7 +65,7 @@ class YouTubeSearchTool(Tool):
         "required": ["query"],
     }
 
-    async def run(self, query: str, max_results: int = 5) -> str:
+    async def execute(self, query: str, max_results: int = 5) -> str:
         import asyncio
 
         return await asyncio.get_event_loop().run_in_executor(
@@ -118,7 +118,7 @@ class YouTubeTranscriptTool(Tool):
         "required": ["video_url_or_id"],
     }
 
-    async def run(self, video_url_or_id: str, max_chars: int = 3000) -> str:
+    async def execute(self, video_url_or_id: str, max_chars: int = 3000) -> str:
         import asyncio
 
         return await asyncio.get_event_loop().run_in_executor(

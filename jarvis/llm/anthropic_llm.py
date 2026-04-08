@@ -1,17 +1,13 @@
-"""Anthropic Claude LLM provider.
-
-Anthropic uses a different tool-calling format from OpenAI, so this module
-converts between the unified internal format (OpenAI-style) and the Anthropic
-wire format.
-"""
+"""Anthropic Claude LLM provider with true token streaming."""
 
 from __future__ import annotations
 
 import json
 import logging
 import uuid
+from typing import AsyncGenerator
 
-from jarvis.llm.base import BaseLLM, LLMResponse, ToolCall
+from jarvis.llm.base import BaseLLM, LLMResponse, StreamChunk, ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +27,7 @@ class AnthropicLLM(BaseLLM):
     def is_available(self) -> bool:
         return bool(self._api_key)
 
-    # ------------------------------------------------------------------
-    # Message format conversion
-    # ------------------------------------------------------------------
-
     def _to_anthropic_messages(self, messages: list[dict]) -> list[dict]:
-        """Convert OpenAI-style messages to Anthropic format."""
         converted: list[dict] = []
         i = 0
         while i < len(messages):
@@ -67,7 +58,6 @@ class AnthropicLLM(BaseLLM):
                     )
 
             elif role == "tool":
-                # Collect consecutive tool results into a single user message
                 tool_results: list[dict] = []
                 while i < len(messages) and messages[i]["role"] == "tool":
                     tm = messages[i]
@@ -80,13 +70,12 @@ class AnthropicLLM(BaseLLM):
                     )
                     i += 1
                 converted.append({"role": "user", "content": tool_results})
-                continue  # i already advanced inside the while loop
+                continue
 
             i += 1
         return converted
 
     def _to_anthropic_tools(self, tools: list[dict]) -> list[dict]:
-        """Convert OpenAI function-calling schema to Anthropic tool schema."""
         anthropic_tools = []
         for t in tools:
             fn = t.get("function", t)
@@ -99,22 +88,16 @@ class AnthropicLLM(BaseLLM):
             )
         return anthropic_tools
 
-    # ------------------------------------------------------------------
-    # Chat
-    # ------------------------------------------------------------------
-
     async def chat(
         self,
         messages: list[dict],
         tools: list[dict] | None = None,
         system: str | None = None,
     ) -> LLMResponse:
-        anthropic_messages = self._to_anthropic_messages(messages)
-
         kwargs: dict = {
             "model": self.model,
             "max_tokens": 4096,
-            "messages": anthropic_messages,
+            "messages": self._to_anthropic_messages(messages),
         }
         if system:
             kwargs["system"] = system
@@ -131,15 +114,68 @@ class AnthropicLLM(BaseLLM):
                 content_text += block.text
             elif block.type == "tool_use":
                 tool_calls.append(
-                    ToolCall(
-                        id=block.id,
-                        name=block.name,
-                        arguments=block.input or {},
-                    )
+                    ToolCall(id=block.id, name=block.name, arguments=block.input or {})
                 )
 
-        return LLMResponse(
-            content=content_text,
-            tool_calls=tool_calls,
-            model=response.model,
-        )
+        return LLMResponse(content=content_text, tool_calls=tool_calls, model=response.model)
+
+    async def stream_chat(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        system: str | None = None,
+    ) -> AsyncGenerator[StreamChunk, None]:
+        """True token-by-token streaming via Anthropic's streaming API."""
+        kwargs: dict = {
+            "model": self.model,
+            "max_tokens": 4096,
+            "messages": self._to_anthropic_messages(messages),
+        }
+        if system:
+            kwargs["system"] = system
+        if tools:
+            kwargs["tools"] = self._to_anthropic_tools(tools)
+
+        tool_calls: list[ToolCall] = []
+        current_tool: dict | None = None
+
+        async with self.client.messages.stream(**kwargs) as stream:
+            async for event in stream:
+                event_type = type(event).__name__
+
+                if event_type == "RawContentBlockDeltaEvent":
+                    delta = event.delta
+                    if hasattr(delta, "text") and delta.text:
+                        yield StreamChunk(delta=delta.text, model=self.model)
+                    elif hasattr(delta, "partial_json") and delta.partial_json:
+                        # Tool call argument accumulation
+                        if current_tool is not None:
+                            current_tool["arguments_raw"] = (
+                                current_tool.get("arguments_raw", "") + delta.partial_json
+                            )
+
+                elif event_type == "RawContentBlockStartEvent":
+                    block = event.content_block
+                    if hasattr(block, "type") and block.type == "tool_use":
+                        current_tool = {
+                            "id": block.id,
+                            "name": block.name,
+                            "arguments_raw": "",
+                        }
+
+                elif event_type == "RawContentBlockStopEvent":
+                    if current_tool is not None:
+                        try:
+                            args = json.loads(current_tool.get("arguments_raw", "{}"))
+                        except json.JSONDecodeError:
+                            args = {}
+                        tool_calls.append(
+                            ToolCall(
+                                id=current_tool["id"],
+                                name=current_tool["name"],
+                                arguments=args,
+                            )
+                        )
+                        current_tool = None
+
+        yield StreamChunk(tool_calls=tool_calls, done=True, model=self.model)

@@ -4,6 +4,8 @@ Usage:
   python -m jarvis            # Interactive voice loop
   python -m jarvis chat       # Text-only chat REPL
   python -m jarvis serve      # Start the FastAPI server
+  python -m jarvis plan       # Multi-step planning mode
+  python -m jarvis index      # Index knowledge base documents
 """
 
 from __future__ import annotations
@@ -36,25 +38,15 @@ def _build_agent():
     from jarvis.core.scheduler import CancelReminderTool, ListRemindersTool, ReminderTool, TaskScheduler
     from jarvis.core.tools import ToolRegistry
     from jarvis.llm.router import LLMRouter
+    from jarvis.plugins.loader import PluginLoader
 
     router = LLMRouter.from_env()
     registry = ToolRegistry()
 
-    from jarvis.integrations.discord_int import DiscordIntegration
-    from jarvis.integrations.gmail import GmailIntegration
-    from jarvis.integrations.instagram import InstagramIntegration
-    from jarvis.integrations.youtube import YouTubeIntegration
+    # Load all integrations
+    _load_integrations(registry)
 
-    for integration in [
-        GmailIntegration(),
-        DiscordIntegration(),
-        YouTubeIntegration(),
-        InstagramIntegration(),
-    ]:
-        if integration.is_configured():
-            registry.register_many(integration.get_tools())
-
-    # Scheduler with audio reminder notification
+    # Scheduler
     scheduler = TaskScheduler()
     scheduler.start()
 
@@ -62,11 +54,61 @@ def _build_agent():
         console.print(f"\n[bold yellow]⏰ REMINDER:[/bold yellow] {msg}")
 
     registry.register_many(
-        [ReminderTool(scheduler, notify_callback=_notify), ListRemindersTool(scheduler), CancelReminderTool(scheduler)]
+        [
+            ReminderTool(scheduler, notify_callback=_notify),
+            ListRemindersTool(scheduler),
+            CancelReminderTool(scheduler),
+        ]
     )
+
+    # Load user plugins
+    plugin_loader = PluginLoader()
+    n_tools = plugin_loader.load_all(registry)
+    if n_tools:
+        console.print(f"[dim]Loaded {n_tools} tool(s) from plugins.[/dim]")
 
     memory = Memory()
     return Agent(llm_router=router, tool_registry=registry, memory=memory)
+
+
+def _load_integrations(registry) -> None:
+    """Load all configured integrations into the tool registry."""
+    from jarvis.integrations.browser import BrowserIntegration
+    from jarvis.integrations.code_exec import CodeExecIntegration
+    from jarvis.integrations.computer_control import ComputerControlIntegration
+    from jarvis.integrations.discord_int import DiscordIntegration
+    from jarvis.integrations.filesystem import FilesystemIntegration
+    from jarvis.integrations.finance import FinanceIntegration
+    from jarvis.integrations.github_int import GitHubIntegration
+    from jarvis.integrations.gmail import GmailIntegration
+    from jarvis.integrations.google_calendar import GoogleCalendarIntegration
+    from jarvis.integrations.google_drive import GoogleDriveIntegration
+    from jarvis.integrations.home_assistant import HomeAssistantIntegration
+    from jarvis.integrations.instagram import InstagramIntegration
+    from jarvis.integrations.knowledge_base import KnowledgeBaseIntegration
+    from jarvis.integrations.news import NewsIntegration
+    from jarvis.integrations.notion import NotionIntegration
+    from jarvis.integrations.screen import ScreenIntegration
+    from jarvis.integrations.slack import SlackIntegration
+    from jarvis.integrations.spotify import SpotifyIntegration
+    from jarvis.integrations.telegram import TelegramIntegration
+    from jarvis.integrations.weather import WeatherIntegration
+    from jarvis.integrations.whatsapp import WhatsAppIntegration
+    from jarvis.integrations.youtube import YouTubeIntegration
+
+    integrations = [
+        GmailIntegration(), DiscordIntegration(), YouTubeIntegration(), InstagramIntegration(),
+        GoogleCalendarIntegration(), GoogleDriveIntegration(), WhatsAppIntegration(),
+        TelegramIntegration(), SpotifyIntegration(), SlackIntegration(),
+        BrowserIntegration(), FilesystemIntegration(), CodeExecIntegration(),
+        ScreenIntegration(), ComputerControlIntegration(), KnowledgeBaseIntegration(),
+        WeatherIntegration(), NewsIntegration(), NotionIntegration(),
+        GitHubIntegration(), HomeAssistantIntegration(), FinanceIntegration(),
+    ]
+    for integration in integrations:
+        if integration.is_configured():
+            registry.register_many(integration.get_tools())
+            logging.getLogger("jarvis").debug("Loaded: %s", integration.name)
 
 
 # ── Voice loop ────────────────────────────────────────────────────────────────
@@ -83,10 +125,9 @@ async def voice_loop(agent) -> None:
         device="cpu",
         compute_type="int8",
     )
-    tts = TextToSpeech(voice=os.getenv("TTS_VOICE", "en-US-GuyNeural"))
+    tts = TextToSpeech(voice=os.getenv("TTS_VOICE", "en-US-AriaNeural"))
     detector = WakeWordDetector(model_path=wake_model)
 
-    # Pre-load Whisper now so first activation has no cold-start delay
     console.print("[dim]Loading speech recognition model…[/dim]")
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, stt._load)
@@ -111,17 +152,29 @@ async def voice_loop(agent) -> None:
             continue
 
         console.print(f"[bold]You:[/bold] {text}")
-
         console.print("[dim]Thinking…[/dim]")
-        reply = await agent.run(text, history=history)
+
+        # Stream the reply token-by-token in the console
+        reply_parts = []
+        async for event in agent.stream(text, history=history):
+            if event.kind == "chunk":
+                chunk = event.data.get("delta", "")
+                reply_parts.append(chunk)
+                console.print(chunk, end="", markup=False)
+            elif event.kind == "tool_call":
+                console.print(f"\n[dim]→ {event.data['name']}({event.data['args']})[/dim]")
+            elif event.kind == "done":
+                if not reply_parts:
+                    reply_parts.append(event.data.get("content", ""))
+
+        reply = "".join(reply_parts).strip()
+        console.print()  # newline after streaming
 
         history.append({"role": "user", "content": text})
         history.append({"role": "assistant", "content": reply})
-        # Keep last 20 turns in context
         if len(history) > 40:
             history = history[-40:]
 
-        console.print(Panel(Markdown(reply), title="[cyan]JARVIS[/cyan]", border_style="cyan"))
         await tts.speak(reply)
         console.print("[dim]Listening for wake word…[/dim]")
 
@@ -154,15 +207,70 @@ async def chat_loop(agent) -> None:
         if not user_input.strip():
             continue
 
-        with console.status("[dim]Thinking…[/dim]"):
-            reply = await agent.run(user_input, history=history)
+        # Stream tokens in real-time
+        console.print("[bold cyan]JARVIS:[/bold cyan] ", end="")
+        reply_parts = []
+        async for event in agent.stream(user_input, history=history):
+            if event.kind == "chunk":
+                chunk = event.data.get("delta", "")
+                reply_parts.append(chunk)
+                console.print(chunk, end="", markup=False)
+            elif event.kind == "tool_call":
+                console.print(
+                    f"\n[dim]→ calling {event.data['name']}…[/dim]",
+                    end=""
+                )
+            elif event.kind == "done" and not reply_parts:
+                reply_parts.append(event.data.get("content", ""))
+                console.print(reply_parts[-1], end="", markup=False)
+
+        console.print()
+        reply = "".join(reply_parts).strip()
 
         history.append({"role": "user", "content": user_input})
         history.append({"role": "assistant", "content": reply})
         if len(history) > 40:
             history = history[-40:]
 
-        console.print(Panel(Markdown(reply), title="[cyan]JARVIS[/cyan]", border_style="cyan"))
+
+# ── Plan mode ─────────────────────────────────────────────────────────────────
+
+
+async def plan_loop(agent) -> None:
+    from jarvis.core.planner import Planner
+
+    planner = Planner(agent=agent)
+    console.print(
+        Panel.fit(
+            "[bold cyan]JARVIS.AGI[/bold cyan] — Plan Mode\n"
+            "Describe a complex goal and JARVIS will break it into steps and execute them.",
+            border_style="cyan",
+        )
+    )
+
+    while True:
+        try:
+            goal = Prompt.ask("[bold yellow]Goal[/bold yellow]")
+        except (EOFError, KeyboardInterrupt):
+            console.print("\n[dim]Goodbye.[/dim]")
+            break
+
+        if goal.lower() in ("exit", "quit"):
+            break
+        if not goal.strip():
+            continue
+
+        async for event in planner.execute(goal):
+            if event["type"] == "plan_created":
+                console.print(f"\n[bold]Plan:[/bold] {event['plan']} ({event['steps']} steps)")
+            elif event["type"] == "step_start":
+                console.print(f"  [dim]Step {event['step_id']}:[/dim] {event['description']}")
+            elif event["type"] == "step_done":
+                console.print(f"  [green]✓[/green] {event['result'][:100]}")
+            elif event["type"] == "step_failed":
+                console.print(f"  [red]✗[/red] {event['error']}")
+            elif event["type"] == "plan_done":
+                console.print(Panel(Markdown(event["summary"]), title="[cyan]Result[/cyan]", border_style="cyan"))
 
 
 # ── CLI commands ──────────────────────────────────────────────────────────────
@@ -173,7 +281,6 @@ async def chat_loop(agent) -> None:
 def main(ctx: click.Context) -> None:
     """JARVIS.AGI — your free, self-hosted AI agent."""
     if ctx.invoked_subcommand is None:
-        # Default: voice mode
         agent = _build_agent()
         try:
             asyncio.run(voice_loop(agent))
@@ -189,6 +296,30 @@ def chat() -> None:
         asyncio.run(chat_loop(agent))
     except KeyboardInterrupt:
         console.print("\n[dim]Goodbye.[/dim]")
+
+
+@main.command()
+def plan() -> None:
+    """Multi-step autonomous planning mode."""
+    agent = _build_agent()
+    try:
+        asyncio.run(plan_loop(agent))
+    except KeyboardInterrupt:
+        console.print("\n[dim]Goodbye.[/dim]")
+
+
+@main.command()
+@click.argument("path", default=".jarvis/knowledge")
+def index(path: str) -> None:
+    """Index documents into the personal knowledge base."""
+    from jarvis.integrations.knowledge_base import KbIndexTool
+
+    async def _run():
+        tool = KbIndexTool()
+        result = await tool.execute(path=path)
+        console.print(result)
+
+    asyncio.run(_run())
 
 
 @main.command()

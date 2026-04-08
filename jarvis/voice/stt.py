@@ -50,6 +50,32 @@ class SpeechToText:
         )
         return " ".join(s.text.strip() for s in segments).strip()
 
+    def transcribe_file(self, path: str, language: str = "en") -> str:
+        """Transcribe any audio file that ffmpeg can decode (WebM, MP4, WAV, MP3, etc.).
+
+        faster-whisper passes the path directly to ffmpeg, so soundfile is not
+        involved and WebM / Opus recordings from the browser are handled natively.
+        """
+        import json, time
+        self._load()
+        # #region agent log
+        with open('debug-cd92b8.log', 'a') as _f:
+            _f.write(json.dumps({"sessionId":"cd92b8","timestamp":int(time.time()*1000),"location":"stt.py:transcribe_file","message":"transcribing file","data":{"path":path},"hypothesisId":"H1"}) + '\n')
+        # #endregion
+        segments, _ = self._model.transcribe(
+            path,
+            beam_size=5,
+            language=language,
+            vad_filter=True,
+            vad_parameters={"min_silence_duration_ms": 300},
+        )
+        result = " ".join(s.text.strip() for s in segments).strip()
+        # #region agent log
+        with open('debug-cd92b8.log', 'a') as _f:
+            _f.write(json.dumps({"sessionId":"cd92b8","timestamp":int(time.time()*1000),"location":"stt.py:transcribe_file","message":"transcription result","data":{"result":result},"hypothesisId":"H1"}) + '\n')
+        # #endregion
+        return result
+
     def record_until_silence(
         self,
         silence_threshold: float = 0.01,

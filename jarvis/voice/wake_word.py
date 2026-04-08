@@ -59,12 +59,6 @@ class WakeWordDetector:
             logger.info("Downloading/loading hey_jarvis wake word model…")
             openwakeword.utils.download_models()
             self._model = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
-            # #region agent log
-            import json as _j, time as _t
-            _keys = list(self._model.prediction_buffer.keys()) if hasattr(self._model, 'prediction_buffer') else []
-            with open('debug-cd92b8.log', 'a') as _f:
-                _f.write(_j.dumps({"sessionId":"cd92b8","timestamp":int(_t.time()*1000),"location":"wake_word.py:63","message":"hey_jarvis model loaded","data":{"prediction_keys":_keys,"model_loaded":self._model is not None},"hypothesisId":"H-C1"}) + '\n')
-            # #endregion
 
     def _run_detection(self, on_detected: Callable[[], None]) -> None:
         import sounddevice as sd

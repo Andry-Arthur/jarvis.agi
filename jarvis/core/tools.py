@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
@@ -19,7 +18,7 @@ class Tool(ABC):
     parameters: dict  # JSON Schema object
 
     @abstractmethod
-    async def run(self, **kwargs: Any) -> str:
+    async def execute(self, **kwargs: Any) -> str:
         """Execute the tool and return a string result."""
         ...
 
@@ -56,16 +55,19 @@ class ToolRegistry:
     def get_all_schemas(self) -> list[dict]:
         return [t.to_openai_schema() for t in self._tools.values()]
 
+    def list_tools(self) -> list[str]:
+        return list(self._tools)
+
     async def execute(self, name: str, arguments: dict) -> str:
         tool = self._tools.get(name)
         if tool is None:
-            return f"Error: tool '{name}' not found."
+            return f"Unknown tool '{name}'. Available: {list(self._tools)}"
         try:
-            result = await tool.run(**arguments)
+            result = await tool.execute(**arguments)
             return str(result)
         except Exception as exc:
             logger.exception("Tool '%s' raised an error", name)
-            return f"Tool error: {exc}"
+            return f"Tool error ({name}): {exc}"
 
     @property
     def names(self) -> list[str]:

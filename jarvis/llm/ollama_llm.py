@@ -1,4 +1,4 @@
-"""Ollama local LLM provider.
+"""Ollama local LLM provider with streaming support.
 
 Requires Ollama running at OLLAMA_BASE_URL (default http://localhost:11434).
 Tool calling works with models that support it (llama3.1, mistral-nemo, etc.).
@@ -9,10 +9,11 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from typing import AsyncGenerator
 
 import httpx
 
-from jarvis.llm.base import BaseLLM, LLMResponse, ToolCall
+from jarvis.llm.base import BaseLLM, LLMResponse, StreamChunk, ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,6 @@ class OllamaLLM(BaseLLM):
             all_messages.append({"role": "system", "content": system})
         all_messages.extend(self._prepare_messages(messages))
 
-        # Ollama uses OpenAI-compatible tool format for supported models
         kwargs: dict = {"model": self.model, "messages": all_messages}
         if tools:
             kwargs["tools"] = tools
@@ -99,3 +99,53 @@ class OllamaLLM(BaseLLM):
             tool_calls=tool_calls,
             model=self.model,
         )
+
+    async def stream_chat(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        system: str | None = None,
+    ) -> AsyncGenerator[StreamChunk, None]:
+        """Stream tokens from Ollama."""
+        import ollama as ollama_lib
+
+        client = ollama_lib.AsyncClient(host=self.base_url)
+
+        all_messages: list[dict] = []
+        if system:
+            all_messages.append({"role": "system", "content": system})
+        all_messages.extend(self._prepare_messages(messages))
+
+        kwargs: dict = {"model": self.model, "messages": all_messages, "stream": True}
+        if tools:
+            kwargs["tools"] = tools
+
+        async for part in await client.chat(**kwargs):
+            msg = part.get("message", {})
+            token = msg.get("content", "")
+            done = part.get("done", False)
+
+            if token:
+                yield StreamChunk(delta=token, model=self.model)
+
+            # Tool calls come in the final non-streaming chunk
+            if done:
+                raw_tool_calls = msg.get("tool_calls") or []
+                tool_calls: list[ToolCall] = []
+                for tc in raw_tool_calls:
+                    fn = tc.get("function", {})
+                    args = fn.get("arguments", {})
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args)
+                        except json.JSONDecodeError:
+                            args = {}
+                    tool_calls.append(
+                        ToolCall(
+                            id=str(uuid.uuid4()),
+                            name=fn.get("name", ""),
+                            arguments=args,
+                        )
+                    )
+                yield StreamChunk(tool_calls=tool_calls, done=True, model=self.model)
+                break

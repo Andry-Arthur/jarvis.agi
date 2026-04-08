@@ -69,7 +69,7 @@ class GmailReadTool(Tool):
         },
     }
 
-    async def run(self, max_results: int = 5) -> str:
+    async def execute(self, max_results: int = 5) -> str:
         import asyncio
 
         return await asyncio.get_event_loop().run_in_executor(
@@ -111,7 +111,7 @@ class GmailSearchTool(Tool):
         "required": ["query"],
     }
 
-    async def run(self, query: str, max_results: int = 5) -> str:
+    async def execute(self, query: str, max_results: int = 5) -> str:
         import asyncio
 
         return await asyncio.get_event_loop().run_in_executor(
@@ -153,7 +153,7 @@ class GmailSendTool(Tool):
         "required": ["to", "subject", "body"],
     }
 
-    async def run(self, to: str, subject: str, body: str) -> str:
+    async def execute(self, to: str, subject: str, body: str) -> str:
         import asyncio
 
         return await asyncio.get_event_loop().run_in_executor(

@@ -1,1 +1,2 @@
-{"sessionId": "cd92b8", "timestamp": 1775655045401, "location": "wake_word.py:63", "message": "hey_jarvis model loaded", "data": {"prediction_keys": [], "model_loaded": true}, "hypothesisId": "H-C1"}
+{"sessionId": "cd92b8", "timestamp": 1775658808337, "location": "stt.py:transcribe_file", "message": "transcribing file", "data": {"path": "C:\\Users\\andry\\AppData\\Local\\Temp\\tmpfgcf5pfo.webm"}, "hypothesisId": "H1"}
+{"sessionId": "cd92b8", "timestamp": 1775658809255, "location": "stt.py:transcribe_file", "message": "transcription result", "data": {"result": "Hello, can you hear me?"}, "hypothesisId": "H1"}

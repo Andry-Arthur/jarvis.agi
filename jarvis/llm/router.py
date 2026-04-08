@@ -1,13 +1,37 @@
-"""LLM Router — selects and falls back between providers."""
+"""LLM Router — selects and falls back between providers with retry/backoff."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+from typing import AsyncGenerator
 
-from jarvis.llm.base import BaseLLM, LLMResponse
+from jarvis.llm.base import BaseLLM, LLMResponse, StreamChunk
 
 logger = logging.getLogger(__name__)
+
+# Rate-limit / transient errors that warrant a retry
+_RETRYABLE = (ConnectionError, TimeoutError, OSError)
+_MAX_RETRIES = 2
+_BACKOFF_BASE = 1.5  # seconds
+
+
+async def _with_backoff(coro_factory, name: str):
+    """Call an async factory function with exponential backoff on transient errors."""
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            return await coro_factory()
+        except _RETRYABLE as exc:
+            if attempt == _MAX_RETRIES:
+                raise
+            wait = _BACKOFF_BASE ** attempt
+            logger.warning(
+                "Provider '%s' transient error (attempt %d/%d): %s — retrying in %.1fs",
+                name, attempt + 1, _MAX_RETRIES + 1, exc, wait,
+            )
+            await asyncio.sleep(wait)
+    raise RuntimeError("unreachable")
 
 
 class LLMRouter:
@@ -84,7 +108,9 @@ class LLMRouter:
         """Return a specific provider or the default."""
         target = name or self._default
         if target not in self._providers:
-            raise KeyError(f"Provider '{target}' not registered. Available: {list(self._providers)}")
+            raise KeyError(
+                f"Provider '{target}' not registered. Available: {list(self._providers)}"
+            )
         return self._providers[target]
 
     async def chat(
@@ -95,7 +121,11 @@ class LLMRouter:
         provider: str | None = None,
     ) -> LLMResponse:
         """Chat using the specified provider, falling back down the list on failure."""
-        order = [provider] + [p for p in self._order if p != provider] if provider else self._order
+        order = (
+            [provider] + [p for p in self._order if p != provider]
+            if provider
+            else self._order
+        )
 
         last_error: Exception | None = None
         for name in order:
@@ -104,7 +134,9 @@ class LLMRouter:
                 continue
             try:
                 logger.debug("Routing to provider: %s", name)
-                return await llm.chat(messages, tools=tools, system=system)
+                return await _with_backoff(
+                    lambda llm=llm: llm.chat(messages, tools=tools, system=system), name
+                )
             except Exception as exc:
                 logger.warning("Provider '%s' failed: %s — trying next", name, exc)
                 last_error = exc
@@ -112,6 +144,36 @@ class LLMRouter:
         raise RuntimeError(
             f"All LLM providers failed. Last error: {last_error}"
         ) from last_error
+
+    async def stream_chat(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        system: str | None = None,
+        provider: str | None = None,
+    ) -> AsyncGenerator[StreamChunk, None]:
+        """Stream tokens from the best available provider."""
+        order = (
+            [provider] + [p for p in self._order if p != provider]
+            if provider
+            else self._order
+        )
+
+        for name in order:
+            llm = self._providers.get(name)
+            if llm is None:
+                continue
+            try:
+                logger.debug("Streaming via provider: %s", name)
+                async for chunk in llm.stream_chat(messages, tools=tools, system=system):
+                    yield chunk
+                return
+            except Exception as exc:
+                logger.warning(
+                    "Provider '%s' stream failed: %s — trying next", name, exc
+                )
+
+        yield StreamChunk(delta="[Error: all LLM providers failed]", done=True)
 
     @property
     def available_providers(self) -> list[str]:

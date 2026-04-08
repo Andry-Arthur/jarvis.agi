@@ -46,7 +46,7 @@ class InstagramReadDMTool(Tool):
         },
     }
 
-    async def run(self, limit: int = 5) -> str:
+    async def execute(self, limit: int = 5) -> str:
         async with httpx.AsyncClient() as client:
             r = await client.get(
                 f"{GRAPH_API}/{_user_id()}/conversations",
@@ -92,7 +92,7 @@ class InstagramSendDMTool(Tool):
         "required": ["recipient_id", "message"],
     }
 
-    async def run(self, recipient_id: str, message: str) -> str:
+    async def execute(self, recipient_id: str, message: str) -> str:
         async with httpx.AsyncClient() as client:
             r = await client.post(
                 f"{GRAPH_API}/{_user_id()}/messages",
@@ -117,7 +117,7 @@ class InstagramPostsTool(Tool):
         },
     }
 
-    async def run(self, limit: int = 5) -> str:
+    async def execute(self, limit: int = 5) -> str:
         async with httpx.AsyncClient() as client:
             r = await client.get(
                 f"{GRAPH_API}/{_user_id()}/media",

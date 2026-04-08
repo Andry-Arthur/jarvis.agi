@@ -1,0 +1,73 @@
+version: "3.9"
+
+services:
+  # JARVIS API server
+  jarvis:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - jarvis_data:/app/.jarvis
+      - ./credentials.json:/app/credentials.json:ro
+      - ./token.json:/app/token.json
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # JARVIS React frontend
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm install && npm run build && npx serve -s dist -l 3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    restart: unless-stopped
+
+  # Local LLM via Ollama
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+    # Uncomment to enable GPU:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # Nginx reverse proxy (optional, for production)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_certs:/etc/nginx/certs
+    depends_on:
+      - jarvis
+      - frontend
+    profiles:
+      - production
+    restart: unless-stopped
+
+volumes:
+  jarvis_data:
+  ollama_models:
+  nginx_certs:

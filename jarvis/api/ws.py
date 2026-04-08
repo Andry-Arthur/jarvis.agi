@@ -5,13 +5,18 @@ Protocol (JSON messages):
 Client → Server:
   {"type": "message", "content": "...", "history": [...], "provider": "openai"}
   {"type": "ping"}
+  {"type": "tts_toggle", "enabled": true}
+  {"type": "plan", "goal": "...", "history": [...]}
+  {"type": "process_file", "path": "...","question": "..."}
 
 Server → Client:
+  {"type": "chunk",       "delta": "...", "model": "..."}   ← streaming token
   {"type": "tool_call",   "name": "...", "args": {...}}
   {"type": "tool_result", "name": "...", "result": "..."}
   {"type": "done",        "content": "...", "model": "..."}
   {"type": "audio",       "data": "<base64 mp3>"}
   {"type": "error",       "content": "..."}
+  {"type": "plan_event",  ...}
   {"type": "pong"}
 """
 
@@ -35,7 +40,7 @@ async def handle_websocket(websocket: WebSocket) -> None:
     from jarvis.api.main import app_state
 
     agent = app_state["agent"]
-    tts_voice = os.getenv("TTS_VOICE", "en-US-GuyNeural")
+    tts_voice = os.getenv("TTS_VOICE", "en-US-AriaNeural")
     tts_enabled = True
 
     try:
@@ -48,6 +53,27 @@ async def handle_websocket(websocket: WebSocket) -> None:
                 await websocket.send_json({"type": "pong"})
                 continue
 
+            if msg_type == "tts_toggle":
+                tts_enabled = payload.get("enabled", True)
+                continue
+
+            if msg_type == "plan":
+                goal = payload.get("goal", "").strip()
+                if goal:
+                    asyncio.create_task(
+                        _handle_plan(websocket, agent, goal, payload.get("history", []))
+                    )
+                continue
+
+            if msg_type == "process_file":
+                path = payload.get("path", "")
+                question = payload.get("question", "")
+                if path:
+                    asyncio.create_task(
+                        _handle_file(websocket, agent, path, question)
+                    )
+                continue
+
             if msg_type != "message":
                 continue
 
@@ -58,14 +84,16 @@ async def handle_websocket(websocket: WebSocket) -> None:
             history = payload.get("history", [])
             provider = payload.get("provider")
 
-            # Stream agent events
+            # True streaming: emit tokens as they arrive
             final_content = ""
             async for event in agent.stream(user_content, history=history, provider=provider):
                 await websocket.send_json(event.to_dict())
                 if event.kind == "done":
                     final_content = event.data.get("content", "")
+                elif event.kind == "chunk":
+                    final_content += event.data.get("delta", "")
 
-            # Optionally synthesise and stream TTS audio
+            # Optionally synthesise TTS audio for the complete response
             if tts_enabled and final_content:
                 asyncio.create_task(
                     _send_tts_audio(websocket, final_content, tts_voice)
@@ -79,6 +107,34 @@ async def handle_websocket(websocket: WebSocket) -> None:
             await websocket.send_json({"type": "error", "content": str(exc)})
         except Exception:
             pass
+
+
+async def _handle_plan(
+    websocket: WebSocket, agent, goal: str, history: list
+) -> None:
+    """Execute a multi-step plan and stream events."""
+    from jarvis.core.planner import Planner
+
+    planner = Planner(agent=agent)
+    try:
+        async for event in planner.execute(goal, history=history):
+            await websocket.send_json({"type": "plan_event", **event})
+    except Exception as exc:
+        await websocket.send_json({"type": "error", "content": str(exc)})
+
+
+async def _handle_file(
+    websocket: WebSocket, agent, path: str, question: str
+) -> None:
+    """Process a file and send the result."""
+    from jarvis.agi.multimodal import MultimodalProcessor
+
+    processor = MultimodalProcessor(llm_router=agent.llm)
+    try:
+        result = await processor.process_file(path, question=question)
+        await websocket.send_json({"type": "done", "content": result, "model": "multimodal"})
+    except Exception as exc:
+        await websocket.send_json({"type": "error", "content": str(exc)})
 
 
 async def _send_tts_audio(websocket: WebSocket, text: str, voice: str) -> None:
