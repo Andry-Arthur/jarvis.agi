@@ -1,13 +1,18 @@
 """Ollama local LLM provider with streaming support.
 
 Requires Ollama running at OLLAMA_BASE_URL (default http://localhost:11434).
-Tool calling works with models that support it (llama3.1, mistral-nemo, etc.).
+
+Tool calling with small local models (llama3.1 8B, etc.) is unreliable and
+slow on CPU — the model tends to invoke tools for every message, even simple
+greetings.  Set OLLAMA_TOOLS_ENABLED=true in .env to opt in; by default tools
+are disabled so you get fast, reliable conversational responses.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 import uuid
 from typing import AsyncGenerator
 
@@ -16,6 +21,49 @@ import httpx
 from jarvis.llm.base import BaseLLM, LLMResponse, StreamChunk, ToolCall
 
 logger = logging.getLogger(__name__)
+
+_TOOLS_ENABLED = os.getenv("OLLAMA_TOOLS_ENABLED", "false").lower() == "true"
+
+
+def _msg_content(msg) -> str:
+    """Extract text content from an Ollama message object (dict or Pydantic)."""
+    if msg is None:
+        return ""
+    if hasattr(msg, "get"):
+        return msg.get("content", "") or ""
+    return getattr(msg, "content", "") or ""
+
+
+def _msg_tool_calls(msg) -> list:
+    """Extract tool_calls list from an Ollama message object."""
+    if msg is None:
+        return []
+    if hasattr(msg, "get"):
+        return msg.get("tool_calls") or []
+    return getattr(msg, "tool_calls", None) or []
+
+
+def _parse_tool_calls(raw_tool_calls: list) -> list[ToolCall]:
+    """Convert Ollama tool call objects to our ToolCall dataclass."""
+    result: list[ToolCall] = []
+    for tc in raw_tool_calls:
+        if hasattr(tc, "get"):
+            fn = tc.get("function", {})
+            name = fn.get("name", "") if hasattr(fn, "get") else getattr(fn, "name", "")
+            args = fn.get("arguments", {}) if hasattr(fn, "get") else getattr(fn, "arguments", {})
+        else:
+            fn = getattr(tc, "function", None)
+            name = getattr(fn, "name", "") if fn else ""
+            args = getattr(fn, "arguments", {}) if fn else {}
+
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except json.JSONDecodeError:
+                args = {}
+
+        result.append(ToolCall(id=str(uuid.uuid4()), name=name, arguments=args))
+    return result
 
 
 class OllamaLLM(BaseLLM):
@@ -70,33 +118,15 @@ class OllamaLLM(BaseLLM):
         all_messages.extend(self._prepare_messages(messages))
 
         kwargs: dict = {"model": self.model, "messages": all_messages}
-        if tools:
+        if tools and _TOOLS_ENABLED:
             kwargs["tools"] = tools
 
         response = await client.chat(**kwargs)
-        msg = response["message"]
-
-        tool_calls: list[ToolCall] = []
-        raw_tool_calls = msg.get("tool_calls") or []
-        for tc in raw_tool_calls:
-            fn = tc.get("function", {})
-            args = fn.get("arguments", {})
-            if isinstance(args, str):
-                try:
-                    args = json.loads(args)
-                except json.JSONDecodeError:
-                    args = {}
-            tool_calls.append(
-                ToolCall(
-                    id=str(uuid.uuid4()),
-                    name=fn.get("name", ""),
-                    arguments=args,
-                )
-            )
+        msg = getattr(response, "message", response) if not hasattr(response, "get") else response.get("message", {})
 
         return LLMResponse(
-            content=msg.get("content", "") or "",
-            tool_calls=tool_calls,
+            content=_msg_content(msg),
+            tool_calls=_parse_tool_calls(_msg_tool_calls(msg)),
             model=self.model,
         )
 
@@ -117,35 +147,21 @@ class OllamaLLM(BaseLLM):
         all_messages.extend(self._prepare_messages(messages))
 
         kwargs: dict = {"model": self.model, "messages": all_messages, "stream": True}
-        if tools:
+        if tools and _TOOLS_ENABLED:
             kwargs["tools"] = tools
 
+        if not _TOOLS_ENABLED and tools:
+            logger.debug("Ollama tools disabled (OLLAMA_TOOLS_ENABLED=false) — responding without tool schemas")
+
         async for part in await client.chat(**kwargs):
-            msg = part.get("message", {})
-            token = msg.get("content", "")
-            done = part.get("done", False)
+            msg = getattr(part, "message", None)
+            token = _msg_content(msg)
+            done = getattr(part, "done", False)
+            raw_tool_calls = _msg_tool_calls(msg)
 
             if token:
                 yield StreamChunk(delta=token, model=self.model)
 
-            # Tool calls come in the final non-streaming chunk
             if done:
-                raw_tool_calls = msg.get("tool_calls") or []
-                tool_calls: list[ToolCall] = []
-                for tc in raw_tool_calls:
-                    fn = tc.get("function", {})
-                    args = fn.get("arguments", {})
-                    if isinstance(args, str):
-                        try:
-                            args = json.loads(args)
-                        except json.JSONDecodeError:
-                            args = {}
-                    tool_calls.append(
-                        ToolCall(
-                            id=str(uuid.uuid4()),
-                            name=fn.get("name", ""),
-                            arguments=args,
-                        )
-                    )
-                yield StreamChunk(tool_calls=tool_calls, done=True, model=self.model)
+                yield StreamChunk(tool_calls=_parse_tool_calls(raw_tool_calls), done=True, model=self.model)
                 break

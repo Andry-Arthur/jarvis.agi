@@ -14,6 +14,7 @@ dist/
 
 # JARVIS runtime data
 .jarvis/
+debug-*.log
 
 # Secrets
 .env
