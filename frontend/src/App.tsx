@@ -3,17 +3,18 @@ import { Sidebar } from "./components/Sidebar";
 import { Dashboard } from "./pages/Dashboard";
 import { Integrations } from "./pages/Integrations";
 import { Settings } from "./pages/Settings";
+import { Tools } from "./pages/Tools";
 import { useWebSocket } from "./hooks/useWebSocket";
-import type { Provider } from "./types";
+import { useProviderStore } from "./store/provider";
 
 export default function App() {
-  const { status, messages, sendMessage, clearMessages } = useWebSocket();
+  const { status, messages, sendMessage, clearMessages, reconnectCount } = useWebSocket();
+  const provider = useProviderStore((s) => s.provider);
 
   const handleSend = (
     text: string,
     history: Array<{ role: string; content: string }>
   ) => {
-    const provider = (localStorage.getItem("jarvis_provider") as Provider) ?? "openai";
     sendMessage(text, history, provider);
   };
 
@@ -29,11 +30,13 @@ export default function App() {
               <Dashboard
                 messages={messages}
                 status={status}
+                reconnectCount={reconnectCount}
                 onSend={handleSend}
               />
             }
           />
           <Route path="/integrations" element={<Integrations />} />
+          <Route path="/tools" element={<Tools />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>

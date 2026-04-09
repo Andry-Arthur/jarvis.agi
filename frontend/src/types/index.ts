@@ -18,6 +18,9 @@ export interface Integration {
   configured: boolean;
   icon?: string;
   description?: string;
+  category?: string;
+  env_vars?: string[];
+  setup_hint?: string;
 }
 
 export interface WsInboundMessage {

@@ -1,20 +1,18 @@
-import { useState } from "react";
 import { ChatPanel } from "../components/ChatPanel";
+import { StatsBar } from "../components/StatsBar";
+import { useProviderStore } from "../store/provider";
 import type { Provider } from "../types";
 import type { ConnectionStatus, Message } from "../types";
 
 interface Props {
   messages: Message[];
   status: ConnectionStatus;
+  reconnectCount: number;
   onSend: (text: string, history: Array<{ role: string; content: string }>) => void;
 }
 
-export function Dashboard({ messages, status, onSend }: Props) {
-  const [provider, setProvider] = useState<Provider>("openai");
-
-  const handleSend = (text: string, history: Array<{ role: string; content: string }>) => {
-    onSend(text, history);
-  };
+export function Dashboard({ messages, status, reconnectCount, onSend }: Props) {
+  const { provider, setProvider } = useProviderStore();
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -36,11 +34,13 @@ export function Dashboard({ messages, status, onSend }: Props) {
         ))}
       </div>
 
+      <StatsBar reconnectCount={reconnectCount} />
+
       <ChatPanel
         messages={messages}
         status={status}
         provider={provider}
-        onSend={handleSend}
+        onSend={onSend}
       />
     </div>
   );

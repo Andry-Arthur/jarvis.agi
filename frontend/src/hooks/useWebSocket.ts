@@ -17,6 +17,7 @@ export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [reconnectCount, setReconnectCount] = useState(0);
   const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const connect = useCallback(() => {
@@ -37,6 +38,7 @@ export function useWebSocket() {
     ws.onclose = () => {
       setStatus("disconnected");
       if (pingTimer.current) clearInterval(pingTimer.current);
+      setReconnectCount((c) => c + 1);
       // Auto-reconnect after 3 s
       setTimeout(connect, 3_000);
     };
@@ -143,5 +145,5 @@ export function useWebSocket() {
 
   const clearMessages = useCallback(() => setMessages([]), []);
 
-  return { status, messages, sendMessage, clearMessages, connect };
+  return { status, messages, sendMessage, clearMessages, connect, reconnectCount };
 }

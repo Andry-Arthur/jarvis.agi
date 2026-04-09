@@ -4,6 +4,7 @@ import {
   Plug,
   Settings,
   Trash2,
+  Wrench,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -14,6 +15,7 @@ interface SidebarProps {
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/integrations", icon: Plug, label: "Integrations" },
+  { to: "/tools", icon: Wrench, label: "Tools" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
