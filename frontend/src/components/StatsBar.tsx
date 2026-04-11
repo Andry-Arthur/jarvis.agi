@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Plug, Wrench, RefreshCw } from "lucide-react";
+import { apiUrl } from "../lib/apiBase";
 import type { Integration } from "../types";
 
 interface Props {
@@ -7,14 +8,14 @@ interface Props {
 }
 
 async function fetchIntegrations(): Promise<Integration[]> {
-  const res = await fetch("/api/integrations");
+  const res = await fetch(apiUrl("/api/integrations"));
   if (!res.ok) throw new Error("fetch failed");
   const data = await res.json();
   return data.integrations ?? [];
 }
 
 async function fetchTools(): Promise<unknown[]> {
-  const res = await fetch("/api/integrations/tools");
+  const res = await fetch(apiUrl("/api/integrations/tools"));
   if (!res.ok) throw new Error("fetch failed");
   const data = await res.json();
   return data.tools ?? [];

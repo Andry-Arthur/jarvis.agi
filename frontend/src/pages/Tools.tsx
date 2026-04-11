@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, ChevronDown, ChevronUp, Wrench } from "lucide-react";
+import { apiUrl } from "../lib/apiBase";
 
 interface ToolParam {
   type: string;
@@ -19,7 +20,7 @@ interface ToolSchema {
 }
 
 async function fetchTools(): Promise<ToolSchema[]> {
-  const res = await fetch("/api/integrations/tools");
+  const res = await fetch(apiUrl("/api/integrations/tools"));
   if (!res.ok) throw new Error("Failed to fetch tools");
   const data = await res.json();
   return data.tools ?? [];

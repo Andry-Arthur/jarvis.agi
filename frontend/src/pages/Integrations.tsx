@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, CheckCircle2, XCircle } from "lucide-react";
 import { IntegrationCard } from "../components/IntegrationCard";
+import { apiUrl } from "../lib/apiBase";
 import type { Integration } from "../types";
 
 async function fetchIntegrations(): Promise<Integration[]> {
-  const res = await fetch("/api/integrations");
+  const res = await fetch(apiUrl("/api/integrations"));
   if (!res.ok) throw new Error("Failed to fetch integrations");
   const data = await res.json();
   return data.integrations ?? [];

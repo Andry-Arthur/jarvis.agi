@@ -17,13 +17,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePatchEnvVars } from "../hooks/useEnvVars";
+import { apiUrl } from "../lib/apiBase";
 import { useOnboardingStore } from "../store/onboarding";
 import { useProviderStore } from "../store/provider";
 
 const STEPS = 7;
 
 async function fetchConfig(): Promise<{ default_llm: string }> {
-  const res = await fetch("/api/config");
+  const res = await fetch(apiUrl("/api/config"));
   if (!res.ok) throw new Error("offline");
   return res.json();
 }
@@ -52,7 +53,7 @@ export function Onboarding() {
   const { data: envVarsData, refetch: refetchEnv } = useQuery({
     queryKey: ["env-vars"],
     queryFn: async () => {
-      const res = await fetch("/api/config/env-vars");
+      const res = await fetch(apiUrl("/api/config/env-vars"));
       if (!res.ok) throw new Error("Failed to load env vars");
       return res.json() as Promise<import("../types").EnvVarsResponse>;
     },

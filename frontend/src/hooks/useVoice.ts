@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { apiUrl } from "../lib/apiBase";
 
 export type VoiceState = "idle" | "recording" | "processing" | "speaking";
 
@@ -63,7 +64,7 @@ export function useVoice({ onTranscript }: UseVoiceOptions) {
       formData.append("file", blob, "recording.webm");
 
       try {
-        const res = await fetch("/api/voice/transcribe", {
+        const res = await fetch(apiUrl("/api/voice/transcribe"), {
           method: "POST",
           body: formData,
         });

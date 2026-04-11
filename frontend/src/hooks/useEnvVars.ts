@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiUrl } from "../lib/apiBase";
 import type { EnvVarsResponse, EnvVarsPatchResponse } from "../types";
 
 async function fetchEnvVars(): Promise<EnvVarsResponse> {
-  const res = await fetch("/api/config/env-vars");
+  const res = await fetch(apiUrl("/api/config/env-vars"));
   if (!res.ok) throw new Error("Failed to fetch env vars");
   return res.json();
 }
@@ -10,7 +11,7 @@ async function fetchEnvVars(): Promise<EnvVarsResponse> {
 async function patchEnvVars(
   vars: Record<string, string>
 ): Promise<EnvVarsPatchResponse> {
-  const res = await fetch("/api/config/env-vars", {
+  const res = await fetch(apiUrl("/api/config/env-vars"), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ vars }),

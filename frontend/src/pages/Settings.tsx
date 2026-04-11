@@ -11,6 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useEnvVars, usePatchEnvVars } from "../hooks/useEnvVars";
+import { apiUrl } from "../lib/apiBase";
 
 interface ConfigData {
   default_llm: string;
@@ -22,13 +23,13 @@ interface ConfigData {
 }
 
 async function fetchConfig(): Promise<ConfigData> {
-  const res = await fetch("/api/config");
+  const res = await fetch(apiUrl("/api/config"));
   if (!res.ok) throw new Error("Failed to fetch config");
   return res.json();
 }
 
 async function reloadConfig() {
-  const res = await fetch("/api/config/reload", { method: "POST" });
+  const res = await fetch(apiUrl("/api/config/reload"), { method: "POST" });
   if (!res.ok) throw new Error("Reload failed");
   return res.json();
 }

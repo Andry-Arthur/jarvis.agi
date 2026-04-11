@@ -22,6 +22,7 @@ credentials.json
 *.json
 !package.json
 !tsconfig.json
+!vercel.json
 
 # Frontend
 frontend/node_modules/
