@@ -4,6 +4,14 @@ export default {
   theme: {
     extend: {
       colors: {
+        page: "var(--color-page)",
+        surface: "var(--color-surface)",
+        "surface-muted": "var(--color-surface-muted)",
+        border: "var(--color-border)",
+        fg: "var(--color-fg)",
+        muted: "var(--color-muted)",
+        accent: "var(--color-accent)",
+        "accent-muted": "var(--color-accent-muted)",
         jarvis: {
           50:  "#eef9ff",
           100: "#d9f1ff",

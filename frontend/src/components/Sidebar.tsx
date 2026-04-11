@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Plug,
   Settings,
+  Sparkles,
   Trash2,
   Wrench,
 } from "lucide-react";
@@ -21,19 +22,30 @@ const navItems = [
 
 export function Sidebar({ onClear }: SidebarProps) {
   return (
-    <aside className="flex h-full w-16 flex-col items-center border-r border-gray-800 bg-gray-900 py-4 md:w-56 md:items-start md:px-3">
-      {/* Logo */}
+    <aside className="flex h-full w-16 flex-col items-center border-r border-border bg-surface py-4 shadow-sm md:w-56 md:items-start md:px-3">
       <div className="mb-8 flex items-center gap-2 px-1">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-jarvis-600">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-jarvis-600 shadow-sm">
           <Bot className="h-5 w-5 text-white" />
         </div>
-        <span className="hidden text-lg font-bold tracking-tight text-white md:block">
-          JARVIS<span className="text-jarvis-400">.AGI</span>
+        <span className="hidden text-lg font-bold tracking-tight text-fg md:block">
+          JARVIS<span className="text-jarvis-600">.AGI</span>
         </span>
       </div>
 
-      {/* Nav */}
-      <nav className="flex flex-1 flex-col gap-1 w-full">
+      <nav className="flex w-full flex-1 flex-col gap-1">
+        <NavLink
+          to="/onboarding?review=1"
+          className={({ isActive }) =>
+            `flex items-center gap-3 rounded-lg px-2 py-2.5 text-sm font-medium transition-colors ${
+              isActive
+                ? "bg-accent-muted text-jarvis-700"
+                : "text-muted hover:bg-surface-muted hover:text-fg"
+            }`
+          }
+        >
+          <Sparkles className="h-5 w-5 shrink-0" />
+          <span className="hidden md:block">Setup guide</span>
+        </NavLink>
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
@@ -42,8 +54,8 @@ export function Sidebar({ onClear }: SidebarProps) {
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg px-2 py-2.5 text-sm font-medium transition-colors ${
                 isActive
-                  ? "bg-jarvis-600/20 text-jarvis-400"
-                  : "text-gray-400 hover:bg-gray-800 hover:text-gray-100"
+                  ? "bg-accent-muted text-jarvis-700"
+                  : "text-muted hover:bg-surface-muted hover:text-fg"
               }`
             }
           >
@@ -53,10 +65,9 @@ export function Sidebar({ onClear }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Clear chat */}
       <button
         onClick={onClear}
-        className="flex items-center gap-3 rounded-lg px-2 py-2.5 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-800 hover:text-red-400 w-full"
+        className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-red-50 hover:text-red-600"
         title="Clear conversation"
       >
         <Trash2 className="h-5 w-5 shrink-0" />

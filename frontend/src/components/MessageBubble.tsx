@@ -35,10 +35,10 @@ function CopyButton({ text }: { text: string }) {
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="rounded p-1 text-gray-600 hover:text-gray-300 transition-colors"
+      className="rounded p-1 text-muted transition-colors hover:text-fg"
       title="Copy"
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
     </button>
   );
 }
@@ -53,7 +53,6 @@ export function MessageBubble({ message }: Props) {
 
   /* ── Tool call ── */
   if (message.role === "tool_call") {
-    // Try to extract JSON args from content like: Calling **tool_name**\n{...}
     const rawContent = message.content;
     const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
     const argsJson = jsonMatch ? jsonMatch[0] : null;
@@ -68,20 +67,20 @@ export function MessageBubble({ message }: Props) {
 
     return (
       <div className="flex items-start gap-2 py-1">
-        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-yellow-900/40">
-          <Wrench className="h-3 w-3 text-yellow-400" />
+        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-amber-100">
+          <Wrench className="h-3 w-3 text-amber-700" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-gray-500">Tool call</span>
-            <code className="rounded bg-yellow-900/20 px-1.5 py-0.5 text-xs font-medium text-yellow-300">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted">Tool call</span>
+            <code className="rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-amber-200/80">
               {message.toolName ?? "unknown"}
             </code>
-            <span className="text-xs text-gray-600">{relativeTime(message.timestamp)}</span>
+            <span className="text-xs text-muted">{relativeTime(message.timestamp)}</span>
             {parsedArgs && (
               <button
                 onClick={() => setArgsExpanded((v) => !v)}
-                className="flex items-center gap-0.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                className="flex items-center gap-0.5 text-xs text-muted transition-colors hover:text-fg"
               >
                 args
                 {argsExpanded ? (
@@ -93,7 +92,7 @@ export function MessageBubble({ message }: Props) {
             )}
           </div>
           {argsExpanded && parsedArgs && (
-            <pre className="mt-1.5 rounded-lg bg-gray-900 p-2 text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap border border-gray-800">
+            <pre className="mt-1.5 overflow-x-auto whitespace-pre-wrap rounded-lg border border-border bg-surface-muted p-2 text-xs text-fg">
               {JSON.stringify(parsedArgs, null, 2)}
             </pre>
           )}
@@ -112,10 +111,10 @@ export function MessageBubble({ message }: Props) {
         : content;
 
     return (
-      <div className="ml-7 mb-1">
+      <div className="mb-1 ml-7">
         <button
           onClick={() => setResultExpanded((v) => !v)}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          className="flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-fg"
         >
           {resultExpanded ? (
             <ChevronDown className="h-3 w-3" />
@@ -124,18 +123,17 @@ export function MessageBubble({ message }: Props) {
           )}
           <Terminal className="h-3 w-3" />
           <span>
-            Result from{" "}
-            <code className="text-gray-400">{message.toolName ?? "tool"}</code>
+            Result from <code className="text-fg">{message.toolName ?? "tool"}</code>
           </span>
           {isTruncated && (
-            <span className="text-gray-600">
+            <span className="text-muted">
               ({resultExpanded ? "collapse" : `${content.length} chars`})
             </span>
           )}
         </button>
         {resultExpanded && (
           <div className="relative mt-1.5">
-            <pre className="rounded-lg border border-gray-800 bg-gray-900 p-3 text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap max-h-72 overflow-y-auto">
+            <pre className="max-h-72 overflow-x-auto overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-surface-muted p-3 text-xs text-fg">
               {displayContent}
             </pre>
             <div className="absolute right-2 top-2">
@@ -152,49 +150,46 @@ export function MessageBubble({ message }: Props) {
 
   return (
     <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
-      {/* Avatar */}
       <div
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white ${
-          isUser ? "bg-gray-600" : "bg-jarvis-600"
+          isUser ? "bg-jarvis-700" : "bg-jarvis-600"
         }`}
       >
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
       </div>
 
-      {/* Bubble */}
       <div className={`group relative max-w-[80%] ${isUser ? "" : ""}`}>
         <div
           className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
             isUser
-              ? "rounded-tr-sm bg-jarvis-600 text-white"
-              : "rounded-tl-sm bg-gray-800 text-gray-100"
+              ? "rounded-tr-sm bg-jarvis-600 text-white shadow-sm"
+              : "rounded-tl-sm border border-border bg-surface text-fg shadow-sm"
           }`}
         >
           {isUser ? (
             <span>{message.content}</span>
           ) : (
-            <div className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-pre:bg-gray-900 prose-code:text-jarvis-300">
+            <div className="prose prose-slate prose-sm max-w-none prose-p:my-1 prose-headings:text-fg prose-pre:border prose-pre:border-border prose-pre:bg-surface-muted prose-code:rounded prose-code:bg-surface-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-jarvis-800 prose-code:before:content-none prose-code:after:content-none">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
             </div>
           )}
         </div>
 
-        {/* Footer: time + model + copy */}
         <div
           className={`mt-1 flex items-center gap-2 text-xs ${
             isUser ? "flex-row-reverse" : "flex-row"
           }`}
         >
-          <span className={isUser ? "text-jarvis-200" : "text-gray-600"}>
+          <span className={isUser ? "text-jarvis-600/90" : "text-muted"}>
             {relativeTime(message.timestamp)}
           </span>
           {message.model && !isUser && (
-            <span className="rounded-full bg-gray-800 px-1.5 py-0.5 text-gray-500">
+            <span className="rounded-full bg-surface-muted px-1.5 py-0.5 text-muted">
               {message.model}
             </span>
           )}
           {!isUser && (
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="opacity-0 transition-opacity group-hover:opacity-100">
               <CopyButton text={message.content} />
             </span>
           )}

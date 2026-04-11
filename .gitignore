@@ -26,6 +26,7 @@ credentials.json
 # Frontend
 frontend/node_modules/
 frontend/dist/
+frontend/coverage/
 
 # Editor
 .vscode/

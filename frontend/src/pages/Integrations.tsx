@@ -11,7 +11,20 @@ async function fetchIntegrations(): Promise<Integration[]> {
   return data.integrations ?? [];
 }
 
-const CATEGORIES = ["All", "Communication", "Productivity", "Media", "Social", "Automation", "System", "Memory", "Information", "Development", "Smart Home", "Finance"];
+const CATEGORIES = [
+  "All",
+  "Communication",
+  "Productivity",
+  "Media",
+  "Social",
+  "Automation",
+  "System",
+  "Memory",
+  "Information",
+  "Development",
+  "Smart Home",
+  "Finance",
+];
 
 export function Integrations() {
   const [search, setSearch] = useState("");
@@ -29,7 +42,7 @@ export function Integrations() {
       !search ||
       i.name.toLowerCase().includes(search.toLowerCase()) ||
       (i.description ?? "").toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = category === "All" || (i as any).category === category;
+    const matchesCategory = category === "All" || (i as { category?: string }).category === category;
     const matchesStatus = !showConnectedOnly || i.configured;
     return matchesSearch && matchesCategory && matchesStatus;
   });
@@ -37,38 +50,39 @@ export function Integrations() {
   const connectedCount = integrations.filter((i) => i.configured).length;
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      {/* Header */}
+    <div className="flex-1 overflow-y-auto bg-hud-pane p-6">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100">Integrations</h1>
-          <p className="mt-1 text-sm text-gray-400">
+          <h1 className="text-2xl font-bold text-fg">Integrations</h1>
+          <p className="mt-1 text-sm text-muted">
             Configure connected services. Set credentials in{" "}
-            <code className="rounded bg-gray-800 px-1 py-0.5 text-jarvis-300">.env</code> to enable them.
+            <code className="rounded border border-border bg-surface-muted px-1 py-0.5 text-jarvis-700">
+              .env
+            </code>{" "}
+            to enable them.
           </p>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="flex items-center gap-1.5 text-green-400">
+          <span className="flex items-center gap-1.5 text-emerald-700">
             <CheckCircle2 className="h-4 w-4" />
             {connectedCount} connected
           </span>
-          <span className="flex items-center gap-1.5 text-gray-500">
+          <span className="flex items-center gap-1.5 text-muted">
             <XCircle className="h-4 w-4" />
             {integrations.length - connectedCount} unconfigured
           </span>
         </div>
       </div>
 
-      {/* Filters */}
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+        <div className="relative min-w-48 flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input
             type="text"
             placeholder="Search integrations…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-700 bg-gray-800 py-2 pl-9 pr-3 text-sm text-gray-100 placeholder-gray-500 outline-none focus:border-jarvis-600 transition-colors"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-fg outline-none transition-colors placeholder:text-muted focus:border-jarvis-500 focus:ring-1 focus:ring-jarvis-500/30"
           />
         </div>
 
@@ -79,8 +93,8 @@ export function Integrations() {
               onClick={() => setCategory(cat)}
               className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 category === cat
-                  ? "bg-jarvis-600 text-white"
-                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+                  ? "bg-jarvis-600 text-white shadow-sm"
+                  : "bg-surface-muted text-muted hover:bg-surface-muted/80 hover:text-fg"
               }`}
             >
               {cat}
@@ -92,8 +106,8 @@ export function Integrations() {
           onClick={() => setShowConnectedOnly((v) => !v)}
           className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
             showConnectedOnly
-              ? "bg-green-800/50 text-green-300"
-              : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200"
+              : "bg-surface-muted text-muted hover:text-fg"
           }`}
         >
           Connected only
@@ -101,33 +115,30 @@ export function Integrations() {
 
         <button
           onClick={() => refetch()}
-          className="rounded-full px-3 py-1 text-xs font-medium bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200 transition-colors"
+          className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium text-muted transition-colors hover:bg-surface-muted/80 hover:text-fg"
         >
           Refresh
         </button>
       </div>
 
-      {/* Loading skeleton */}
       {isLoading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="h-44 animate-pulse rounded-xl bg-gray-800" />
+            <div key={i} className="h-44 animate-pulse rounded-xl bg-surface-muted" />
           ))}
         </div>
       )}
 
-      {/* Error */}
       {error && (
-        <div className="rounded-lg border border-red-800 bg-red-900/20 p-4 text-sm text-red-400">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           Could not load integrations. Is the API server running?
         </div>
       )}
 
-      {/* Grid */}
       {!isLoading && !error && (
         <>
           {filtered.length === 0 ? (
-            <p className="py-12 text-center text-sm text-gray-500">
+            <p className="py-12 text-center text-sm text-muted">
               No integrations match your filters.
             </p>
           ) : (
@@ -140,14 +151,18 @@ export function Integrations() {
         </>
       )}
 
-      {/* Setup guide */}
-      <div className="mt-8 rounded-xl border border-gray-700 bg-gray-800/50 p-5">
-        <h2 className="mb-3 font-semibold text-gray-200">Quick Setup Guide</h2>
-        <ol className="list-inside list-decimal space-y-2 text-sm text-gray-400">
+      <div className="mt-8 rounded-xl border border-border bg-surface/90 p-5 shadow-sm backdrop-blur-sm">
+        <h2 className="mb-3 font-semibold text-fg">Quick Setup Guide</h2>
+        <ol className="list-inside list-decimal space-y-2 text-sm text-muted">
           <li>
             Copy{" "}
-            <code className="rounded bg-gray-700 px-1 text-jarvis-300">.env.example</code> to{" "}
-            <code className="rounded bg-gray-700 px-1 text-jarvis-300">.env</code>
+            <code className="rounded border border-border bg-surface-muted px-1 text-jarvis-700">
+              .env.example
+            </code>{" "}
+            to{" "}
+            <code className="rounded border border-border bg-surface-muted px-1 text-jarvis-700">
+              .env
+            </code>
           </li>
           <li>Add the required env vars for each integration you want to use</li>
           <li>Restart the JARVIS API server</li>

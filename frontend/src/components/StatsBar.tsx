@@ -52,11 +52,11 @@ export function StatsBar({ reconnectCount }: Props) {
   ];
 
   return (
-    <div className="flex items-center gap-5 border-b border-gray-800 bg-gray-900/60 px-4 py-1.5">
+    <div className="flex items-center gap-5 border-b border-border bg-surface-muted/80 px-4 py-1.5 backdrop-blur-sm">
       {stats.map(({ icon: Icon, value, label }) => (
-        <div key={label} className="flex items-center gap-1.5 text-xs text-gray-500">
-          <Icon className="h-3.5 w-3.5 shrink-0" />
-          <span className="font-medium text-gray-400">{value}</span>
+        <div key={label} className="flex items-center gap-1.5 text-xs text-muted">
+          <Icon className="h-3.5 w-3.5 shrink-0 text-jarvis-600/80" />
+          <span className="font-medium text-fg">{value}</span>
           <span>{label}</span>
         </div>
       ))}

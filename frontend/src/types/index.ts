@@ -23,6 +23,27 @@ export interface Integration {
   setup_hint?: string;
 }
 
+export interface EnvVarStatus {
+  label: string;
+  section: string;
+  secret: boolean;
+  is_set: boolean;
+  masked_value: string | null;
+  placeholder: string;
+}
+
+export interface EnvVarsResponse {
+  vars: Record<string, EnvVarStatus>;
+}
+
+export interface EnvVarsPatchResponse {
+  saved: string[];
+  cleared: string[];
+  reloaded: boolean;
+  providers: string[];
+  message: string;
+}
+
 export interface WsInboundMessage {
   type: "tool_call" | "tool_result" | "done" | "audio" | "error" | "pong";
   content?: string;

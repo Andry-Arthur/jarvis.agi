@@ -18,7 +18,15 @@ export function useWebSocket() {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
   const [messages, setMessages] = useState<Message[]>([]);
   const [reconnectCount, setReconnectCount] = useState(0);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const speakingCountRef = useRef(0);
   const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const adjustSpeaking = useCallback((delta: number) => {
+    speakingCountRef.current += delta;
+    if (speakingCountRef.current < 0) speakingCountRef.current = 0;
+    setIsSpeaking(speakingCountRef.current > 0);
+  }, []);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -31,7 +39,9 @@ export function useWebSocket() {
       setStatus("connected");
       // Keepalive ping every 25 s
       pingTimer.current = setInterval(() => {
-        ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ type: "ping" }));
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "ping" }));
+        }
       }, 25_000);
     };
 
@@ -57,8 +67,14 @@ export function useWebSocket() {
         );
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
-        audio.play().catch(() => {});
-        audio.onended = () => URL.revokeObjectURL(url);
+        adjustSpeaking(1);
+        const cleanup = () => {
+          URL.revokeObjectURL(url);
+          adjustSpeaking(-1);
+        };
+        audio.onended = cleanup;
+        audio.onerror = cleanup;
+        audio.play().catch(() => cleanup());
         return;
       }
 
@@ -116,7 +132,7 @@ export function useWebSocket() {
         ]);
       }
     };
-  }, []);
+  }, [adjustSpeaking]);
 
   useEffect(() => {
     connect();
@@ -145,5 +161,13 @@ export function useWebSocket() {
 
   const clearMessages = useCallback(() => setMessages([]), []);
 
-  return { status, messages, sendMessage, clearMessages, connect, reconnectCount };
+  return {
+    status,
+    messages,
+    sendMessage,
+    clearMessages,
+    connect,
+    reconnectCount,
+    isSpeaking,
+  };
 }
