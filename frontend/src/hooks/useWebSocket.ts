@@ -60,6 +60,21 @@ export function useWebSocket() {
 
       if (data.type === "pong") return;
 
+      if (data.type === "notification") {
+        const title = data.title ?? "Notification";
+        const body = data.body ?? "";
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: uid(),
+            role: "assistant",
+            content: `🔔 **${title}**\n\n${body}`,
+            timestamp: new Date(),
+          },
+        ]);
+        return;
+      }
+
       if (data.type === "audio" && data.data) {
         const blob = new Blob(
           [Uint8Array.from(atob(data.data), (c) => c.charCodeAt(0))],

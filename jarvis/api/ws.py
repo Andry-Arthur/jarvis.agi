@@ -17,6 +17,7 @@ Server → Client:
   {"type": "audio",       "data": "<base64 mp3>"}
   {"type": "error",       "content": "..."}
   {"type": "plan_event",  ...}
+  {"type": "notification","title": "...", "body": "...", "kind": "...", "timestamp": "..."}
   {"type": "pong"}
 """
 
@@ -33,11 +34,36 @@ from fastapi import WebSocket, WebSocketDisconnect
 logger = logging.getLogger(__name__)
 
 
+async def broadcast_proactive_notification(notification) -> None:
+    """Push a proactive Notification to all connected WebSocket clients (best-effort)."""
+    from jarvis.api.main import app_state
+
+    clients: set[WebSocket] = app_state.setdefault("ws_clients", set())
+    payload = {
+        "type": "notification",
+        "title": notification.title,
+        "body": notification.body,
+        "kind": notification.kind,
+        "timestamp": notification.timestamp,
+    }
+    stale: list[WebSocket] = []
+    for ws in list(clients):
+        try:
+            await ws.send_json(payload)
+        except Exception:
+            stale.append(ws)
+    for ws in stale:
+        clients.discard(ws)
+
+
 async def handle_websocket(websocket: WebSocket) -> None:
     await websocket.accept()
     logger.info("WebSocket client connected: %s", websocket.client)
 
     from jarvis.api.main import app_state
+
+    clients: set[WebSocket] = app_state.setdefault("ws_clients", set())
+    clients.add(websocket)
 
     agent = app_state["agent"]
     tts_voice = os.getenv("TTS_VOICE", "en-US-AriaNeural")
@@ -107,6 +133,8 @@ async def handle_websocket(websocket: WebSocket) -> None:
             await websocket.send_json({"type": "error", "content": str(exc)})
         except Exception:
             pass
+    finally:
+        clients.discard(websocket)
 
 
 async def _handle_plan(

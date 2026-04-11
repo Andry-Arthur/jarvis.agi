@@ -32,6 +32,38 @@ memory:
   collection_name: jarvis_memory
   max_context_results: 5
 
+# Background autonomy (requires API process always running, e.g. `python -m jarvis serve`).
+# Master switch: set `enabled: true` and enable individual jobs. Env: AUTONOMOUS_ENABLED, etc.
+autonomous:
+  enabled: false
+  morning_briefing:
+    enabled: false
+    hour: 8
+    minute: 0
+  inbox_monitor:
+    enabled: false
+    interval_minutes: 30
+  calendar_conflicts:
+    enabled: false
+    interval_minutes: 60
+  local_news:
+    enabled: false
+    interval_hours: 4
+    region: ""
+    use_planner: false
+  economic_trends:
+    enabled: false
+    interval_hours: 12
+    use_planner: true
+  travel_planning:
+    enabled: false
+    day_of_week: mon
+    hour: 9
+    minute: 0
+    use_planner: true
+  ambient:
+    enabled: false
+
 integrations:
   gmail:
     enabled: false

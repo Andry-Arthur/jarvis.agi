@@ -45,7 +45,14 @@ export interface EnvVarsPatchResponse {
 }
 
 export interface WsInboundMessage {
-  type: "tool_call" | "tool_result" | "done" | "audio" | "error" | "pong";
+  type:
+    | "tool_call"
+    | "tool_result"
+    | "done"
+    | "audio"
+    | "error"
+    | "pong"
+    | "notification";
   content?: string;
   name?: string;
   args?: Record<string, unknown>;
@@ -53,6 +60,10 @@ export interface WsInboundMessage {
   model?: string;
   data?: string;
   mime?: string;
+  title?: string;
+  body?: string;
+  kind?: string;
+  timestamp?: string;
 }
 
 export interface WsOutboundMessage {

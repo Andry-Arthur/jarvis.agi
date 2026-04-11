@@ -7,6 +7,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from jarvis.core.autonomous_config import is_autonomous_enabled, load_autonomous_settings
 from jarvis.core.proactive import notification_bus
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,22 @@ class NotificationResponse(BaseModel):
 class PlanRequest(BaseModel):
     goal: str
     history: list[dict] | None = None
+
+
+@router.get("/autonomous/status")
+async def autonomous_status():
+    """Summarize autonomous mode and scheduler jobs (for Settings / ops)."""
+    from jarvis.api.main import app_state
+
+    scheduler = app_state.get("scheduler")
+    jobs = scheduler.list_jobs() if scheduler else []
+    return {
+        "autonomous_enabled": is_autonomous_enabled(),
+        "autonomous_config": load_autonomous_settings(),
+        "proactive_runner": app_state.get("proactive_runner") is not None,
+        "ambient_monitor": app_state.get("ambient_monitor") is not None,
+        "scheduler_jobs": jobs,
+    }
 
 
 @router.get("/notifications", response_model=list[NotificationResponse])

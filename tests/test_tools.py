@@ -44,7 +44,8 @@ class AddTool(Tool):
     }
 
     async def execute(self, a: float, b: float) -> str:
-        return str(a + b)
+        # Coerce via float so int literals (e.g. a=2, b=3) match str(5.0) == "5.0"
+        return str(float(a) + float(b))
 
 
 # -----------------------------------------------------------------------

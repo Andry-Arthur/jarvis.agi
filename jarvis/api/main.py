@@ -140,8 +140,25 @@ async def lifespan(app: FastAPI):
     world_model = WorldModel()
     app_state["world_model"] = world_model
 
+    app_state["ws_clients"] = set()
+
+    from jarvis.api.ws import broadcast_proactive_notification
+    from jarvis.core.autonomous_bootstrap import start_autonomous, stop_autonomous
+    from jarvis.core.autonomous_config import load_autonomous_settings
+    from jarvis.core.proactive import notification_bus
+
+    async def _push_notifications(notification):
+        await broadcast_proactive_notification(notification)
+
+    notification_bus.subscribe(_push_notifications)
+
+    autonomous_cfg = load_autonomous_settings()
+    start_autonomous(app_state, autonomous_cfg)
+
     logger.info("JARVIS.AGI API ready.")
     yield
+    stop_autonomous(app_state)
+    notification_bus.clear_subscribers()
     scheduler.stop()
     app_state.clear()
 

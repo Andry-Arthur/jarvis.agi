@@ -107,6 +107,14 @@ Edit `config/settings.yaml` or override any value via `.env`.
 | `TTS_VOICE` | `en-US-GuyNeural` | Edge TTS voice |
 | `WAKE_WORD_MODEL` | *(built-in)* | Path to custom `.onnx` wake word model |
 
+### Autonomous background mode
+
+Scheduled digests (morning briefing, news, economics, travel, inbox/calendar checks, optional ambient monitoring) run **only while the API process is running** (`python -m jarvis serve`). They do not survive reboots unless you start the server at login or install it as a Windows Service, macOS `launchd` job, or systemd unit.
+
+Configure in `config/settings.yaml` under `autonomous:` (master switch `enabled`, then per-job flags). Environment overrides include `AUTONOMOUS_ENABLED`, `AUTONOMOUS_NEWS_INTERVAL_HOURS`, `AUTONOMOUS_ECONOMICS_INTERVAL_HOURS`, and `AUTONOMOUS_AMBIENT_ENABLED`.
+
+Use `GET /api/autonomous/status` to see whether autonomous mode is enabled, which runner is active, and upcoming scheduler jobs.
+
 ---
 
 ## Architecture
