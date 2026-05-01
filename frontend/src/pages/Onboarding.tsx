@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePatchEnvVars } from "../hooks/useEnvVars";
 import { apiUrl } from "../lib/apiBase";
@@ -164,6 +164,13 @@ export function Onboarding() {
               JARVIS runs on <strong className="text-fg">your computer</strong> — not in the cloud.
               This short guide helps you connect the assistant and your AI account. It usually takes
               just a few minutes.
+            </p>
+            <p className="text-sm text-muted">
+              Need help installing?{" "}
+              <Link className="font-medium text-jarvis-700 hover:underline" to="/install">
+                Open the install page
+              </Link>
+              .
             </p>
             <button
               type="button"

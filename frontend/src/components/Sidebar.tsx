@@ -1,5 +1,6 @@
 import {
   Bot,
+  Laptop,
   LayoutDashboard,
   Plug,
   Settings,
@@ -33,6 +34,19 @@ export function Sidebar({ onClear }: SidebarProps) {
       </div>
 
       <nav className="flex w-full flex-1 flex-col gap-1">
+        <NavLink
+          to="/install"
+          className={({ isActive }) =>
+            `flex items-center gap-3 rounded-lg px-2 py-2.5 text-sm font-medium transition-colors ${
+              isActive
+                ? "bg-accent-muted text-jarvis-700"
+                : "text-muted hover:bg-surface-muted hover:text-fg"
+            }`
+          }
+        >
+          <Laptop className="h-5 w-5 shrink-0" />
+          <span className="hidden md:block">Install</span>
+        </NavLink>
         <NavLink
           to="/onboarding?review=1"
           className={({ isActive }) =>

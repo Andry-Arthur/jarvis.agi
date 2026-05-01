@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import { ProtectedLayout } from "./components/ProtectedLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { Integrations } from "./pages/Integrations";
+import { Install } from "./pages/Install";
 import { Onboarding } from "./pages/Onboarding";
 import { Settings } from "./pages/Settings";
 import { Tools } from "./pages/Tools";
@@ -22,6 +23,7 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/install" element={<Install />} />
       <Route path="/onboarding" element={<Onboarding />} />
       <Route element={<ProtectedLayout onClearChat={clearMessages} />}>
         <Route
