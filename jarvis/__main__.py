@@ -4,6 +4,7 @@ Usage:
   python -m jarvis            # Interactive voice loop
   python -m jarvis chat       # Text-only chat REPL
   python -m jarvis serve      # Start the FastAPI server
+  python -m jarvis multimodal # Desktop webcam/mic → WebSocket multimodal events
   python -m jarvis plan       # Multi-step planning mode
   python -m jarvis index      # Index knowledge base documents
 """
@@ -320,6 +321,59 @@ def index(path: str) -> None:
         console.print(result)
 
     asyncio.run(_run())
+
+
+@main.command("multimodal")
+@click.option(
+    "--ws-url",
+    default=None,
+    help="WebSocket URL (default: ws://127.0.0.1:API_PORT/ws or MULTIMODAL_WS_URL)",
+)
+@click.option("--camera", default=0, type=int, help="OpenCV camera index")
+@click.option(
+    "--fps",
+    default=15.0,
+    type=float,
+    help="Max camera processing FPS (cap)"
+)
+@click.option("--no-mic", is_flag=True, help="Disable microphone emotion capture")
+def multimodal(ws_url: str | None, camera: int, fps: float, no_mic: bool) -> None:
+    """Stream webcam (+ optional mic) multimodal events to a running JARVIS API."""
+    _url = ws_url or os.getenv("MULTIMODAL_WS_URL")
+    if not _url:
+        port = int(os.getenv("API_PORT", "8000"))
+        _url = f"ws://127.0.0.1:{port}/ws"
+
+    console.print(
+        Panel.fit(
+            f"[bold cyan]JARVIS[/bold cyan] Multimodal Desktop Bridge\n"
+            f"Connecting to [bold]{_url}[/bold]\n"
+            f"Camera index [bold]{camera}[/bold], mic {'off' if no_mic else 'on'} — Ctrl+C to stop.",
+            border_style="cyan",
+        )
+    )
+
+    from jarvis.multimodal.desktop_capture import check_desktop_dependencies
+    from jarvis.multimodal.ws_bridge import run_multimodal_bridge
+
+    deps = check_desktop_dependencies()
+    if not deps.get("ok"):
+        console.print(
+            f"[yellow]Warning:[/yellow] {deps.get('message', 'Missing dependencies')}\n"
+            "Install: pip install opencv-python-headless mediapipe"
+        )
+
+    try:
+        asyncio.run(
+            run_multimodal_bridge(
+                _url,
+                camera_index=camera,
+                enable_mic=not no_mic,
+                fps_cap=fps,
+            )
+        )
+    except KeyboardInterrupt:
+        console.print("\n[dim]Bridge stopped.[/dim]")
 
 
 @main.command()

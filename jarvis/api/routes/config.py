@@ -69,6 +69,49 @@ KNOWN_ENV_VARS: dict[str, dict] = {
         "secret": False,
         "hint": "hey_jarvis | hey_mycroft | alexa",
     },
+    # ── Multimodal (desktop sensors) ────────────────────────────────────────
+    "MULTIMODAL_ENABLED": {
+        "label": "Multimodal Context Injection",
+        "section": "Multimodal",
+        "secret": False,
+        "hint": "true | false — fuse webcam/mic signals into chat",
+    },
+    "MULTIMODAL_FUSION_WINDOW_S": {
+        "label": "Multimodal Fusion Window (seconds)",
+        "section": "Multimodal",
+        "secret": False,
+        "hint": "20",
+    },
+    "MULTIMODAL_MAX_CONTEXT_CHARS": {
+        "label": "Multimodal Max Context Characters",
+        "section": "Multimodal",
+        "secret": False,
+        "hint": "1200",
+    },
+    "MULTIMODAL_BROADCAST_HZ": {
+        "label": "Multimodal UI Broadcast Rate (Hz)",
+        "section": "Multimodal",
+        "secret": False,
+        "hint": "5",
+    },
+    "MULTIMODAL_WS_URL": {
+        "label": "Multimodal Desktop Bridge WebSocket URL",
+        "section": "Multimodal",
+        "secret": False,
+        "hint": "ws://127.0.0.1:8000/ws",
+    },
+    "MULTIMODAL_MIC_ENABLED": {
+        "label": "Multimodal Mic Emotion Capture",
+        "section": "Multimodal",
+        "secret": False,
+        "hint": "true | false",
+    },
+    "MULTIMODAL_EMOTION_INTERVAL_S": {
+        "label": "Mic Emotion Sample Interval (seconds)",
+        "section": "Multimodal",
+        "secret": False,
+        "hint": "2.0",
+    },
     # ── Google ────────────────────────────────────────────────────────────
     "GMAIL_CREDENTIALS_FILE": {
         "label": "Google Credentials File",
@@ -365,6 +408,7 @@ class ConfigResponse(BaseModel):
     memory_enabled: bool
     wake_word_model: str
     tts_voice: str
+    multimodal_enabled: bool
     integrations_env: dict[str, bool]
 
 
@@ -377,6 +421,8 @@ async def get_config() -> ConfigResponse:
         memory_enabled=os.getenv("MEMORY_ENABLED", "true").lower() != "false",
         wake_word_model=os.getenv("WAKE_WORD_MODEL", "hey_jarvis"),
         tts_voice=os.getenv("TTS_VOICE", "en-US-AriaNeural"),
+        multimodal_enabled=os.getenv("MULTIMODAL_ENABLED", "false").lower()
+        in ("1", "true", "yes"),
         integrations_env={
             "gmail": bool(os.getenv("GMAIL_CREDENTIALS_FILE")),
             "discord": bool(os.getenv("DISCORD_BOT_TOKEN")),

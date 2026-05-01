@@ -61,6 +61,25 @@ npm run dev
 
 Then open http://localhost:5173 (or visit http://localhost:5173/install for a guided install + onboarding front page).
 
+### 6. (Optional) Desktop multimodal bridge
+
+With `MULTIMODAL_ENABLED=true` in `.env`, run in another terminal:
+
+```bash
+python -m jarvis multimodal
+```
+
+This streams webcam pose cues (and optional mic tone) to the API over WebSocket. See [docs/MULTIMODAL.md](docs/MULTIMODAL.md).
+
+### Hosting the web UI (Vercel) + API rewrites
+
+The web dashboard is a Next.js app. It calls the API via same-origin paths (`/api/*` and `/ws`) and forwards them to your FastAPI server via Next rewrites.
+
+- In Vercel, set the project **Root Directory** to `frontend/`.
+- Set environment variables:
+  - `JARVIS_HTTP_ORIGIN` = `https://your-api.example.com` (no trailing slash)
+  - `JARVIS_WS_ORIGIN` = `wss://your-api.example.com` (optional; no trailing slash)
+
 ---
 
 ## Voice Pipeline

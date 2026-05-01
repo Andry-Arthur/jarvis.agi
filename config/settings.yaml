@@ -8,6 +8,12 @@ llm:
   max_tool_iterations: 10
   temperature: 0.7
 
+multimodal:
+  enabled: false                    # env: MULTIMODAL_ENABLED — desktop bridge + fusion
+  fusion_window_s: 20               # MULTIMODAL_FUSION_WINDOW_S
+  max_context_chars: 1200           # MULTIMODAL_MAX_CONTEXT_CHARS
+  broadcast_hz: 5                   # MULTIMODAL_BROADCAST_HZ
+
 voice:
   whisper_model: base               # tiny | base | small | medium | large-v3
   whisper_device: cpu               # cpu | cuda

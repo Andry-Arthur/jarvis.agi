@@ -142,6 +142,18 @@ async def lifespan(app: FastAPI):
 
     app_state["ws_clients"] = set()
 
+    import asyncio
+
+    from jarvis.multimodal.fusion import MultimodalFusionState
+    from jarvis.multimodal.throttle import TokenBucket
+
+    app_state["multimodal_fusion"] = MultimodalFusionState()
+    app_state["multimodal_lock"] = asyncio.Lock()
+    _mm_hz = float(os.getenv("MULTIMODAL_BROADCAST_HZ", "5"))
+    app_state["multimodal_broadcast_bucket"] = TokenBucket(
+        rate=max(0.5, _mm_hz), capacity=max(2.0, _mm_hz)
+    )
+
     from jarvis.api.ws import broadcast_proactive_notification
     from jarvis.core.autonomous_bootstrap import start_autonomous, stop_autonomous
     from jarvis.core.autonomous_config import load_autonomous_settings
@@ -191,6 +203,7 @@ def create_app() -> FastAPI:
     from jarvis.api.routes.chat import router as chat_router
     from jarvis.api.routes.config import router as config_router
     from jarvis.api.routes.integrations import router as integrations_router
+    from jarvis.api.routes.multimodal import router as multimodal_router
     from jarvis.api.routes.proactive import router as proactive_router
     from jarvis.api.routes.reminders import router as reminders_router
     from jarvis.api.routes.voice import router as voice_router
@@ -202,6 +215,7 @@ def create_app() -> FastAPI:
     app.include_router(config_router, prefix="/api")
     app.include_router(proactive_router, prefix="/api")
     app.include_router(agi_router, prefix="/api")
+    app.include_router(multimodal_router, prefix="/api")
 
     # WebSocket
     from jarvis.api.ws import handle_websocket

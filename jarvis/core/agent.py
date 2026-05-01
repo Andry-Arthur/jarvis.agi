@@ -90,11 +90,14 @@ class Agent:
         user_message: str,
         history: list[dict] | None = None,
         provider: str | None = None,
+        multimodal_suffix: str | None = None,
     ) -> str:
         messages: list[dict] = list(history or [])
         messages.append({"role": "user", "content": user_message})
 
         system = SYSTEM_PROMPT
+        if multimodal_suffix:
+            system += multimodal_suffix
         if self.memory:
             context = await self.memory.get_relevant_context(user_message)
             if context:
@@ -145,11 +148,14 @@ class Agent:
         user_message: str,
         history: list[dict] | None = None,
         provider: str | None = None,
+        multimodal_suffix: str | None = None,
     ) -> AsyncGenerator[AgentEvent, None]:
         messages: list[dict] = list(history or [])
         messages.append({"role": "user", "content": user_message})
 
         system = SYSTEM_PROMPT
+        if multimodal_suffix:
+            system += multimodal_suffix
         if self.memory:
             context = await self.memory.get_relevant_context(user_message)
             if context:

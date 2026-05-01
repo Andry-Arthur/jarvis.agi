@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --color-page: #f0f7fb;
+    --color-page-accent: radial-gradient(
+      ellipse 120% 80% at 50% -20%,
+      rgba(56, 189, 248, 0.12),
+      transparent 55%
+    );
+    --color-surface: #ffffff;
+    --color-surface-muted: #e8f2f9;
+    --color-border: #c5d9e8;
+    --color-fg: #0f172a;
+    --color-muted: #64748b;
+    --color-accent: #1a8cf5;
+    --color-accent-muted: rgba(26, 140, 245, 0.12);
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bg-hud-pane {
+    background-color: var(--color-page);
+    background-image: var(--color-page-accent);
+  }
+}
+
